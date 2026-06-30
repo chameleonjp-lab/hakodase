@@ -1,109 +1,129 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  legalMove,
-  applyMove,
+  computeSlide,
+  applySlide,
   isCleared,
-  gateOpen,
-  computeCycle,
+  legalMove,
+  manhattanLowerBound,
+  gateForBlock,
+  gateOpeningCell,
   key,
 } from '../src/core/rules.js';
 
-function board(overrides = {}) {
+function makeBoard(overrides = {}) {
   return {
-    width: 3,
-    height: 3,
+    width: 5,
+    height: 1,
     walls: new Set(),
     oneway: new Map(),
     gates: [],
-    goals: [],
-    blocks: [{ id: 0, x: 1, y: 1, w: 1, h: 1, color: 0 }],
-    cycle: 1,
+    blocks: [],
     ...overrides,
   };
 }
 
-test('中央のブロックは上下左右に動ける', () => {
-  const b = board();
-  const pos = [{ x: 1, y: 1 }];
-  for (const dir of ['up', 'down', 'left', 'right']) {
-    assert.equal(legalMove(b, pos, 0, 0, dir), true, dir);
-  }
-});
-
-test('盤外へは動けない', () => {
-  const b = board({ blocks: [{ id: 0, x: 0, y: 0, w: 1, h: 1, color: 0 }] });
-  const pos = [{ x: 0, y: 0 }];
-  assert.equal(legalMove(b, pos, 0, 0, 'up'), false);
-  assert.equal(legalMove(b, pos, 0, 0, 'left'), false);
-  assert.equal(legalMove(b, pos, 0, 0, 'right'), true);
-});
-
-test('壁へは進めない', () => {
-  const b = board({ walls: new Set([key(2, 1)]) });
-  const pos = [{ x: 1, y: 1 }];
-  assert.equal(legalMove(b, pos, 0, 0, 'right'), false);
-});
-
-test('他ブロックの占有セルへは進めない', () => {
-  const b = board({
-    blocks: [
-      { id: 0, x: 1, y: 1, w: 1, h: 1, color: 0 },
-      { id: 1, x: 2, y: 1, w: 1, h: 1, color: 1 },
-    ],
+test('ブロックは壁/盤端に当たるまで一気に滑る', () => {
+  const b = makeBoard({
+    blocks: [{ id: 0, x: 0, y: 0, w: 1, h: 1, color: 0 }],
+    gates: [], // 出口なし → 盤端で止まる
   });
-  const pos = [{ x: 1, y: 1 }, { x: 2, y: 1 }];
-  assert.equal(legalMove(b, pos, 0, 0, 'right'), false);
-  assert.equal(legalMove(b, pos, 0, 0, 'up'), true);
+  const pos = [{ x: 0, y: 0 }];
+  const r = computeSlide(b, pos, 0, 'right');
+  assert.equal(r.legal, true);
+  assert.equal(r.exit, false);
+  assert.equal(r.x, 4); // 右端で停止
+  assert.equal(r.steps, 4);
 });
 
-test('一方通行床: 矢印方向にしか出られない', () => {
-  const b = board({ oneway: new Map([[key(1, 1), 'right']]) });
-  const pos = [{ x: 1, y: 1 }];
-  assert.equal(legalMove(b, pos, 0, 0, 'right'), true);
-  assert.equal(legalMove(b, pos, 0, 0, 'left'), false);
-  assert.equal(legalMove(b, pos, 0, 0, 'up'), false);
-  assert.equal(legalMove(b, pos, 0, 0, 'down'), false);
-});
-
-test('開閉ゲート: 閉じていると進入不可、開くと進入可', () => {
-  // phase 1, period 2, openFor 1 → moveCount 0 で閉, 1 で開。
-  const gate = { x: 2, y: 1, period: 2, phase: 1, openFor: 1 };
-  const b = board({ gates: [gate], cycle: computeCycle([gate]) });
-  const pos = [{ x: 1, y: 1 }];
-  assert.equal(gateOpen(gate, 0), false);
-  assert.equal(gateOpen(gate, 1), true);
-  assert.equal(legalMove(b, pos, 0, 0, 'right'), false); // 閉
-  assert.equal(legalMove(b, pos, 1, 0, 'right'), true); // 開
-});
-
-test('applyMove は元を破壊せず手数を増やす', () => {
-  const b = board();
-  const pos = [{ x: 1, y: 1 }];
-  const next = applyMove(b, pos, 0, 0, 'right');
-  assert.deepEqual(pos, [{ x: 1, y: 1 }]); // 元は不変
-  assert.deepEqual(next.positions, [{ x: 2, y: 1 }]);
-  assert.equal(next.moveCount, 1);
-});
-
-test('isCleared: 全ブロックが同色ゴール上でクリア', () => {
-  const b = board({
+test('他ブロックの手前で止まる', () => {
+  const b = makeBoard({
     blocks: [
       { id: 0, x: 0, y: 0, w: 1, h: 1, color: 0 },
-      { id: 1, x: 0, y: 1, w: 1, h: 1, color: 1 },
-    ],
-    goals: [
-      { x: 2, y: 2, color: 0 },
-      { x: 1, y: 2, color: 1 },
+      { id: 1, x: 3, y: 0, w: 1, h: 1, color: 1 },
     ],
   });
-  assert.equal(isCleared(b, [{ x: 2, y: 2 }, { x: 1, y: 2 }]), true);
-  assert.equal(isCleared(b, [{ x: 2, y: 2 }, { x: 0, y: 1 }]), false);
-  // 色違いのゴールに乗ってもクリアにならない
-  assert.equal(isCleared(b, [{ x: 1, y: 2 }, { x: 2, y: 2 }]), false);
+  const pos = [{ x: 0, y: 0 }, { x: 3, y: 0 }];
+  const r = computeSlide(b, pos, 0, 'right');
+  assert.equal(r.x, 2); // ブロック(3)の手前
+  assert.equal(r.steps, 2);
 });
 
-test('computeCycle は周期の最小公倍数', () => {
-  assert.equal(computeCycle([]), 1);
-  assert.equal(computeCycle([{ period: 4 }, { period: 6 }]), 12);
+test('同色ゲートから盤外へ退場できる', () => {
+  const b = makeBoard({
+    blocks: [{ id: 0, x: 0, y: 0, w: 1, h: 1, color: 0 }],
+    gates: [{ side: 'right', line: 0, color: 0 }],
+  });
+  const pos = [{ x: 0, y: 0 }];
+  const r = computeSlide(b, pos, 0, 'right');
+  assert.equal(r.exit, true);
+  assert.equal(r.steps, 5); // 4マス移動 + 盤外へ1歩
+});
+
+test('色違いのゲートからは出られず盤端で止まる', () => {
+  const b = makeBoard({
+    blocks: [{ id: 0, x: 0, y: 0, w: 1, h: 1, color: 0 }],
+    gates: [{ side: 'right', line: 0, color: 1 }], // 別色
+  });
+  const pos = [{ x: 0, y: 0 }];
+  const r = computeSlide(b, pos, 0, 'right');
+  assert.equal(r.exit, false);
+  assert.equal(r.x, 4);
+});
+
+test('1マスも動けない方向は非合法', () => {
+  const b = makeBoard({
+    width: 3, height: 1,
+    blocks: [{ id: 0, x: 0, y: 0, w: 1, h: 1, color: 0 }],
+    gates: [],
+  });
+  const pos = [{ x: 0, y: 0 }];
+  assert.equal(legalMove(b, pos, 0, 'left'), false); // すぐ盤端・ゲート無し
+  assert.equal(legalMove(b, pos, 0, 'right'), true);
+});
+
+test('一方通行床: その向きにしか出られない／逆向き一方通行は壁扱い', () => {
+  const b = makeBoard({
+    width: 4, height: 1,
+    oneway: new Map([[key(0, 0), 'right'], [key(2, 0), 'left']]),
+    blocks: [{ id: 0, x: 0, y: 0, w: 1, h: 1, color: 0 }],
+    gates: [],
+  });
+  const pos = [{ x: 0, y: 0 }];
+  // 出発が right 一方通行 → left は不可
+  assert.equal(legalMove(b, pos, 0, 'left'), false);
+  // right に滑るが (2,0) は left 一方通行で進入不可 → その手前(1)で停止
+  const r = computeSlide(b, pos, 0, 'right');
+  assert.equal(r.x, 1);
+  assert.equal(r.steps, 1);
+});
+
+test('applySlide は元を破壊せず、退場で null になる', () => {
+  const b = makeBoard({
+    blocks: [{ id: 0, x: 0, y: 0, w: 1, h: 1, color: 0 }],
+    gates: [{ side: 'right', line: 0, color: 0 }],
+  });
+  const pos = [{ x: 0, y: 0 }];
+  const a = applySlide(b, pos, 0, 'right');
+  assert.deepEqual(pos, [{ x: 0, y: 0 }]); // 元は不変
+  assert.equal(a.positions[0], null); // 退場
+  assert.equal(a.exit, true);
+  assert.equal(a.steps, 5);
+});
+
+test('isCleared: 全ブロック退場でクリア', () => {
+  assert.equal(isCleared([null, null]), true);
+  assert.equal(isCleared([null, { x: 1, y: 0 }]), false);
+});
+
+test('manhattanLowerBound: 各ブロック→同色ゲート開口の距離総和', () => {
+  const b = makeBoard({
+    width: 5, height: 1,
+    blocks: [{ id: 0, x: 1, y: 0, w: 1, h: 1, color: 0 }],
+    gates: [{ side: 'right', line: 0, color: 0 }],
+  });
+  const gate = gateForBlock(b, 0);
+  const open = gateOpeningCell(b, gate);
+  assert.deepEqual(open, { x: 5, y: 0 });
+  assert.equal(manhattanLowerBound(b, [{ x: 1, y: 0 }]), 4); // |5-1|
 });
