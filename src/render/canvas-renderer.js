@@ -51,6 +51,7 @@ export class CanvasRenderer extends Renderer {
     const cx = Math.floor(px / this._layout.cell);
     const cy = Math.floor(py / this._layout.cell);
     if (cx < 0 || cy < 0) return null;
+    if (this._board && (cx >= this._board.width || cy >= this._board.height)) return null;
     return { x: cx, y: cy };
   }
 
@@ -60,6 +61,7 @@ export class CanvasRenderer extends Renderer {
 
   render(frameState) {
     const { board } = frameState;
+    this._board = board; // clientToCell の境界判定用
     const ctx = this.ctx;
     const L = this._computeLayout(board);
 

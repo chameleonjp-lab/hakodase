@@ -77,7 +77,9 @@ export class PointerInput {
   _dominantDir(dx, dy) {
     const layout = this.mapper.getLayout ? this.mapper.getLayout() : null;
     const cell = layout ? layout.cell : 40;
-    const threshold = Math.max(10, cell * 0.28);
+    // 追従上限(0.85セル, main.js)より必ず小さいセル比基準にして、
+    // 小さいセルでも「引っ張ったのに戻る」空振りが起きないようにする。
+    const threshold = Math.max(6, cell * 0.22);
     const ax = Math.abs(dx);
     const ay = Math.abs(dy);
     if (ax < threshold && ay < threshold) return null; // タップ扱い

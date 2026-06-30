@@ -21,6 +21,13 @@ export class RankingService {
 
 const STORAGE_KEY = 'hakodase.ranking.v1';
 
+/** 並び順: タイム昇順 → 同値なら手数 → さらに同値なら達成時刻。 */
+function byRank(a, b) {
+  if (a.timeMs !== b.timeMs) return a.timeMs - b.timeMs;
+  if ((a.moves || 0) !== (b.moves || 0)) return (a.moves || 0) - (b.moves || 0);
+  return String(a.clearedAt || '').localeCompare(String(b.clearedAt || ''));
+}
+
 /**
  * localStorage ベースの実装。テスト時はフェイクストレージを注入できる。
  */
@@ -61,7 +68,7 @@ export class LocalRankingService extends RankingService {
     };
     const all = this._read();
     all.push(entry);
-    all.sort((a, b) => a.timeMs - b.timeMs);
+    all.sort(byRank);
     this._write(all);
     return entry;
   }
@@ -74,7 +81,7 @@ export class LocalRankingService extends RankingService {
     let all = this._read();
     if (filter.difficulty) all = all.filter((s) => s.difficulty === filter.difficulty);
     if (filter.seed != null) all = all.filter((s) => String(s.seed) === String(filter.seed));
-    all.sort((a, b) => a.timeMs - b.timeMs);
+    all.sort(byRank);
     if (filter.limit) all = all.slice(0, filter.limit);
     return all;
   }

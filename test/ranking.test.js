@@ -25,6 +25,14 @@ test('タイム昇順で並ぶ', async () => {
   assert.deepEqual(list.map((x) => x.timeMs), [3000, 5000, 9000]);
 });
 
+test('同タイムは手数の少ない順に並ぶ（タイブレーク）', async () => {
+  const s = svc();
+  await s.saveScore({ seed: 'a', difficulty: 'normal', timeMs: 5000, moves: 30, clearedAt: '2026-01-01T00:00:00.000Z' });
+  await s.saveScore({ seed: 'b', difficulty: 'normal', timeMs: 5000, moves: 22, clearedAt: '2026-01-02T00:00:00.000Z' });
+  const list = await s.listScores();
+  assert.deepEqual(list.map((x) => x.moves), [22, 30]);
+});
+
 test('難易度でフィルタできる', async () => {
   const s = svc();
   await s.saveScore({ seed: 'a', difficulty: 'normal', timeMs: 5000, moves: 20 });

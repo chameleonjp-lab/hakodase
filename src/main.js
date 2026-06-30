@@ -141,7 +141,7 @@ class Game {
     const s = seed != null ? seed : randomSeed();
     this.meta = generateBoard({ seed: s, difficulty });
     this.engine = new GameEngine(this.meta.board, this.meta);
-    this._resetView(true);
+    this._resetView();
     this.particles = [];
     this.savedThisRound = false;
     this.hud.setMoves(0);
@@ -159,7 +159,7 @@ class Game {
   retry() {
     if (!this.engine) return;
     this.engine.reset();
-    this._resetView(true);
+    this._resetView();
     this.particles = [];
     this.savedThisRound = false;
     this.hud.setMoves(0);
@@ -200,7 +200,8 @@ class Game {
     const board = this.engine.board;
     const count = 90;
     for (let i = 0; i < count; i++) {
-      const color = PALETTE[i % Math.max(2, board.blocks.length)];
+      // 箱の色で弾けさせる（演出の一貫性）。
+      const color = PALETTE[board.blocks[i % board.blocks.length].color % PALETTE.length];
       const angle = Math.random() * Math.PI * 2;
       const speed = 2 + Math.random() * 6;
       this.particles.push({

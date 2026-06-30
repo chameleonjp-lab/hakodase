@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/dev-server.mjs",
-    "test": "node --test test/"
+    "test": "node --test"
   },
   "license": "MIT"
 }
