@@ -250,54 +250,110 @@ export class CanvasRenderer extends Renderer {
       const selected = frameState.selectedIndex === i;
       const satisfied = frameState.satisfied ? frameState.satisfied[i] : false;
 
-      ctx.save();
-      // 影。
-      ctx.shadowColor = 'rgba(0,0,0,0.45)';
-      ctx.shadowBlur = L.cell * 0.18;
-      ctx.shadowOffsetY = L.cell * 0.08;
+      const rad = s * 0.22;
+      const base = color.hex;
 
-      // グラデーション本体。
-      const grad = ctx.createLinearGradient(x, y, x, y + s);
-      grad.addColorStop(0, this._lighten(color.hex, selected ? 0.34 : 0.2));
-      grad.addColorStop(1, this._lighten(color.hex, selected ? 0.0 : -0.12));
-      ctx.fillStyle = grad;
-      this._roundRectPath(ctx, x, y, s, s, s * 0.2);
+      // 接地影（やわらかい落ち影）。
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = L.cell * (selected ? 0.26 : 0.2);
+      ctx.shadowOffsetY = L.cell * 0.09;
+      ctx.fillStyle = 'rgba(0,0,0,0.001)'; // 影だけ落とすためのダミー塗り
+      this._roundRectPath(ctx, x, y, s, s, rad);
       ctx.fill();
       ctx.restore();
 
-      // 出荷済みの淡い発光。
+      // 箱の外殻（側面の厚みを表す濃いめのベース）。斜め光のグラデ。
+      const shell = ctx.createLinearGradient(x, y, x + s, y + s);
+      shell.addColorStop(0, this._shade(base, 0.06));
+      shell.addColorStop(1, this._shade(base, -0.34));
+      ctx.fillStyle = shell;
+      this._roundRectPath(ctx, x, y, s, s, rad);
+      ctx.fill();
+
+      // 上面（フタ）の面取り。外殻より一段明るい台形上部で立体感を出す。
+      const topH = s * 0.5;
+      const topGrad = ctx.createLinearGradient(x, y, x, y + topH);
+      topGrad.addColorStop(0, this._shade(base, selected ? 0.5 : 0.36));
+      topGrad.addColorStop(1, this._shade(base, selected ? 0.16 : 0.06));
+      ctx.fillStyle = topGrad;
+      this._roundRectPath(ctx, x + s * 0.06, y + s * 0.06, s * 0.88, s * 0.84, rad * 0.82);
+      ctx.fill();
+
+      // 中央パネル（記号の台座）。わずかにくぼませる。
+      const panelGrad = ctx.createLinearGradient(x, y + s * 0.18, x, y + s * 0.9);
+      panelGrad.addColorStop(0, this._shade(base, 0.2));
+      panelGrad.addColorStop(1, this._shade(base, -0.16));
+      ctx.fillStyle = panelGrad;
+      this._roundRectPath(ctx, x + s * 0.2, y + s * 0.2, s * 0.6, s * 0.6, rad * 0.6);
+      ctx.fill();
+      // パネルの内側ライン（彫り込み感）。
+      ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+      ctx.lineWidth = Math.max(1, s * 0.015);
+      this._roundRectPath(ctx, x + s * 0.2, y + s * 0.2, s * 0.6, s * 0.6, rad * 0.6);
+      ctx.stroke();
+
+      // 上部の光沢ハイライト。
+      const hl = ctx.createLinearGradient(x, y + s * 0.06, x, y + s * 0.4);
+      hl.addColorStop(0, 'rgba(255,255,255,0.5)');
+      hl.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = hl;
+      this._roundRectPath(ctx, x + s * 0.12, y + s * 0.09, s * 0.76, s * 0.32, rad * 0.55);
+      ctx.fill();
+
+      // 四隅のリベット（コンテナらしさ）。
+      const rv = s * 0.052;
+      const off = s * 0.15;
+      for (const [rx, ry] of [
+        [x + off, y + off],
+        [x + s - off, y + off],
+        [x + off, y + s - off],
+        [x + s - off, y + s - off],
+      ]) {
+        ctx.fillStyle = 'rgba(0,0,0,0.28)';
+        ctx.beginPath();
+        ctx.arc(rx, ry, rv, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.beginPath();
+        ctx.arc(rx - rv * 0.3, ry - rv * 0.3, rv * 0.42, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 縁取り（淡い背景でも箱が締まって見える）。
+      ctx.strokeStyle = this._shade(base, -0.5);
+      ctx.lineWidth = Math.max(1, s * 0.02);
+      this._roundRectPath(ctx, x, y, s, s, rad);
+      ctx.stroke();
+
+      // 記号（エンボス: 下に暗い影、本体は明るく）。
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = `bold ${Math.floor(s * 0.42)}px system-ui, sans-serif`;
+      const symX = x + s / 2;
+      const symY = y + s / 2 + s * 0.01;
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillText(color.symbol, symX, symY + s * 0.02);
+      ctx.fillStyle = 'rgba(255,255,255,0.96)';
+      ctx.fillText(color.symbol, symX, symY);
+
+      // 出荷済みの発光リング。
       if (satisfied) {
         ctx.save();
-        ctx.shadowColor = color.hex;
-        ctx.shadowBlur = L.cell * 0.4;
-        ctx.strokeStyle = this._lighten(color.hex, 0.5);
-        ctx.lineWidth = Math.max(2, s * 0.05);
-        this._roundRectPath(ctx, x, y, s, s, s * 0.2);
+        ctx.shadowColor = base;
+        ctx.shadowBlur = L.cell * 0.45;
+        ctx.strokeStyle = this._shade(base, 0.55);
+        ctx.lineWidth = Math.max(2, s * 0.06);
+        this._roundRectPath(ctx, x + 1, y + 1, s - 2, s - 2, rad);
         ctx.stroke();
         ctx.restore();
       }
 
-      // ハイライト（上部の光沢）。
-      ctx.save();
-      const hl = ctx.createLinearGradient(x, y, x, y + s * 0.5);
-      hl.addColorStop(0, 'rgba(255,255,255,0.45)');
-      hl.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = hl;
-      this._roundRectPath(ctx, x + s * 0.1, y + s * 0.08, s * 0.8, s * 0.42, s * 0.16);
-      ctx.fill();
-      ctx.restore();
-
-      // 記号。
-      ctx.fillStyle = 'rgba(255,255,255,0.95)';
-      ctx.font = `bold ${Math.floor(s * 0.46)}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(color.symbol, x + s / 2, y + s / 2 + 1);
-
+      // 選択中の白リング。
       if (selected) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-        ctx.lineWidth = Math.max(2, s * 0.05);
-        this._roundRectPath(ctx, x, y, s, s, s * 0.2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+        ctx.lineWidth = Math.max(2, s * 0.055);
+        this._roundRectPath(ctx, x - s * 0.01, y - s * 0.01, s * 1.02, s * 1.02, rad);
         ctx.stroke();
       }
     }
@@ -317,6 +373,11 @@ export class CanvasRenderer extends Renderer {
       ctx.fill();
     }
     ctx.globalAlpha = 1;
+  }
+
+  // hex を amt 分だけ明/暗に。amt>0 で明るく、<0 で暗く。_lighten のエイリアス。
+  _shade(hex, amt) {
+    return this._lighten(hex, amt);
   }
 
   // hex を amt 分だけ明/暗に。amt>0 で明るく、<0 で暗く。
