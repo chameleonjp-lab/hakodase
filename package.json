@@ -1,0 +1,12 @@
+{
+  "name": "hakodase",
+  "version": "0.1.0",
+  "description": "HAKODASE / ハコダセ - ブラウザ向け短時間タイムアタック型 色ブロック整理パズル（ビルド不要・外部依存なし）",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/dev-server.mjs",
+    "test": "node --test test/"
+  },
+  "license": "MIT"
+}

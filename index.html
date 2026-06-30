@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0e13" />
+  <title>HAKODASE / ハコダセ</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234cc2ff'/%3E%3Crect x='8' y='8' width='16' height='16' rx='4' fill='%2304222f'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles/main.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <h1 class="title">HAKODASE<span class="subtitle">ハコダセ｜倉庫の色分け出荷</span></h1>
+    </header>
+
+    <section class="stats">
+      <div class="stat"><span class="stat-label">タイム</span><span id="time" class="stat-value">0.00秒</span></div>
+      <div class="stat"><span class="stat-label">手数</span><span id="moves" class="stat-value">0</span></div>
+      <div class="stat"><span class="stat-label">目標</span><span id="target" class="stat-value">-</span></div>
+    </section>
+
+    <section class="board-wrap">
+      <canvas id="board"></canvas>
+    </section>
+
+    <p id="message" class="message" data-kind="info"></p>
+
+    <section class="controls">
+      <label class="ctrl">
+        <span>難易度</span>
+        <select id="difficulty"></select>
+      </label>
+      <button id="retry" class="btn">やりなおし</button>
+      <button id="new" class="btn btn-primary">新しい盤面</button>
+    </section>
+
+    <form id="seedForm" class="seed-row">
+      <input id="seedInput" class="seed-input" type="text" inputmode="text" placeholder="seed を指定（任意）" />
+      <button class="btn" type="submit">この seed で出題</button>
+      <span id="seed" class="seed-current"></span>
+    </form>
+
+    <section class="ranking-section">
+      <div class="ranking-head">
+        <h2>ローカルランキング（この難易度）</h2>
+        <button id="clearRanking" class="btn btn-ghost">記録を消去</button>
+      </div>
+      <ol id="ranking" class="ranking"></ol>
+    </section>
+
+    <footer class="howto">
+      <p>箱をドラッグして同じ色（記号）の搬出口へ。矢印床は出る向きが固定、シャッターは手数で開閉します。</p>
+    </footer>
+  </main>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
