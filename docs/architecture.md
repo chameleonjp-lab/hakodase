@@ -1,6 +1,22 @@
+# v2契約への移行メモ
+
+この`アーキテクチャ`には旧MVP仕様が含まれる。HAKODASE v2の正本は次の文書である。旧MVP説明と矛盾する場合は、v2契約を優先し、後続Phaseで実装を合わせる。
+
+- [GAME_CONTRACT_v2.md](GAME_CONTRACT_v2.md)
+- [SCORE_RANKING_CONTRACT_v2.md](SCORE_RANKING_CONTRACT_v2.md)
+- [MOBILE_TOUCH_CONTRACT_v2.md](MOBILE_TOUCH_CONTRACT_v2.md)
+- [PERFORMANCE_BUDGET_v2.md](PERFORMANCE_BUDGET_v2.md)
+- [EXPERIENCE_CONTRACT_v2.md](EXPERIENCE_CONTRACT_v2.md)
+- [ORIGINALITY_v2.md](ORIGINALITY_v2.md)
+- [REVIEW_CHECKLIST_v2.md](REVIEW_CHECKLIST_v2.md)
+
+主な差分: 旧MVPの「手数」は通過マス数だったが、v2では `swipeCount` と `distanceCells` を分ける。公式問題の最低20手は `optimalSwipes >= 20` を意味する。公式ランキングは同じ `puzzleId` の検証済み問題だけを比較する。Three.js/WebGL、Supabase、SQL、出荷レーン、出荷シャッターは今回実装しない。
+
+---
+
 # HAKODASE アーキテクチャ
 
-ゲームロジックと描画を分離し、将来 Three.js/WebGL へ無痛で移行できることを最優先にした設計。
+ゲームロジックと描画を分離し、将来 Three.js/WebGL を追加しやすくする設計。v2ではCanvas2Dを正式な基本版として残し、Three.js/WebGL化は別作業とする。
 中核は「スライド＆退場」モデル（Block Out! 系にインスパイアした独自実装）。
 
 ---
