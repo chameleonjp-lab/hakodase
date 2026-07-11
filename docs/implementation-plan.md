@@ -1,3 +1,19 @@
+# v2契約への移行メモ
+
+この`実装計画書`には旧MVP仕様が含まれる。HAKODASE v2の正本は次の文書である。旧MVP説明と矛盾する場合は、v2契約を優先し、後続Phaseで実装を合わせる。
+
+- [GAME_CONTRACT_v2.md](GAME_CONTRACT_v2.md)
+- [SCORE_RANKING_CONTRACT_v2.md](SCORE_RANKING_CONTRACT_v2.md)
+- [MOBILE_TOUCH_CONTRACT_v2.md](MOBILE_TOUCH_CONTRACT_v2.md)
+- [PERFORMANCE_BUDGET_v2.md](PERFORMANCE_BUDGET_v2.md)
+- [EXPERIENCE_CONTRACT_v2.md](EXPERIENCE_CONTRACT_v2.md)
+- [ORIGINALITY_v2.md](ORIGINALITY_v2.md)
+- [REVIEW_CHECKLIST_v2.md](REVIEW_CHECKLIST_v2.md)
+
+主な差分: 旧MVPの「手数」は通過マス数だったが、v2では `swipeCount` と `distanceCells` を分ける。公式問題の最低20手は `optimalSwipes >= 20` を意味する。公式ランキングは同じ `puzzleId` の検証済み問題だけを比較する。Three.js/WebGL、Supabase、SQL、出荷レーン、出荷シャッターは今回実装しない。
+
+---
+
 # HAKODASE 実装計画書
 
 要件仕様書（docs/requirements.md）を満たすための実装計画。ビルド不要・外部依存なし・Node 標準テスト。
@@ -95,4 +111,4 @@
 
 1. `renderer.js` の interface（init/resize/render/destroy/clientToCell）を維持。
 2. `ThreeRenderer` を新規作成し同 interface を実装。
-3. `main.js` の `new CanvasRenderer()` を差し替えるだけ。frameState 形式は不変なのでロジック/入力/生成/ソルバーは変更不要。
+3. `frameState` 形式を保ちながら統合する。ただし3D化にはカメラ、光源、立体物管理、ヒット判定、画面サイズ変更、高解像度負荷、資源破棄、WebGLコンテキスト消失と復帰が必要であり、一行差し替えだけで完成とは扱わない。
