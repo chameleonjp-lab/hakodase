@@ -1,5 +1,5 @@
-// スライド＆退場モデルのソルバー。最短手数（通過マス数の総和）を求める。DOM 非依存。
-// 1スライドのコストが可変（通過マス数）なので、均一コスト探索＝ダイクストラで最短を求める。
+// スライド＆退場モデルのソルバー。v2正本の最短操作数を求める。DOM 非依存。
+// 1スライドのコストを1として幅優先探索する。
 // 状態 = 各ブロックの位置（退場は 'E'）。時間依存ギミックが無いので手数の剰余は不要。
 
 import { isCleared, computeSlide, applySlide, gateForBlock, DIR_NAMES } from './rules.js';
@@ -80,13 +80,49 @@ class MinHeap {
   }
 }
 
+
+export function solveOptimalSwipes(board, opts = {}) {
+  const maxNodes = opts.maxNodes ?? 400000;
+  const start = board.blocks.map((b) => ({ x: b.x, y: b.y }));
+  if (isCleared(start)) return { solved: true, optimalSwipes: 0, solution: [], nodes: 0 };
+  const seen = new Set([serialize(start)]);
+  const q = [{ positions: start, solution: [] }];
+  let head = 0;
+  let nodes = 0;
+  while (head < q.length) {
+    const cur = q[head++];
+    for (let i = 0; i < cur.positions.length; i++) {
+      if (!cur.positions[i]) continue;
+      for (const dir of DIR_NAMES) {
+        const r = applySlide(board, cur.positions, i, dir);
+        if (!r) continue;
+        nodes++;
+        if (nodes > maxNodes) {
+          return { solved: false, optimalSwipes: -1, solution: [], reason: 'maxNodes', nodes };
+        }
+        const step = { blockIndex: i, dir };
+        const solution = cur.solution.concat(step);
+        if (isCleared(r.positions)) {
+          return { solved: true, optimalSwipes: solution.length, solution, nodes };
+        }
+        const k = serialize(r.positions);
+        if (!seen.has(k)) {
+          seen.add(k);
+          q.push({ positions: r.positions, solution });
+        }
+      }
+    }
+  }
+  return { solved: false, optimalSwipes: -1, solution: [], reason: 'exhausted', nodes };
+}
+
 /**
- * 盤面の最短手数（通過マス数の総和）を求める。
+ * 盤面の最短移動距離（通過マス数の総和）を求める。診断用。
  * @param {object} board 静的盤面（blocks に初期位置）
  * @param {object} [opts] { maxNodes, maxCost }
  * @returns {{ solved:boolean, moves:number, reason?:string, nodes:number }}
  */
-export function solve(board, opts = {}) {
+export function solveMinimumDistance(board, opts = {}) {
   const maxNodes = opts.maxNodes ?? 400000;
   const maxCost = opts.maxCost ?? 2000;
 
@@ -103,6 +139,7 @@ export function solve(board, opts = {}) {
     const { cost, val: positions } = heap.pop();
     const skey = serialize(positions);
     if (cost > (best.get(skey) ?? Infinity)) continue; // 古いエントリ
+    if (isCleared(positions)) return { solved: true, moves: cost, nodes };
     if (cost > maxCost) return { solved: false, moves: -1, reason: 'maxCost', nodes };
 
     for (let i = 0; i < positions.length; i++) {
@@ -113,7 +150,14 @@ export function solve(board, opts = {}) {
         nodes++;
         if (nodes > maxNodes) return { solved: false, moves: -1, reason: 'maxNodes', nodes };
         const nc = cost + r.steps;
-        if (isCleared(r.positions)) return { solved: true, moves: nc, nodes };
+        if (isCleared(r.positions)) {
+          const nk = serialize(r.positions);
+          if (nc < (best.get(nk) ?? Infinity)) {
+            best.set(nk, nc);
+            heap.push(nc, r.positions);
+          }
+          continue;
+        }
         const nk = serialize(r.positions);
         if (nc < (best.get(nk) ?? Infinity)) {
           best.set(nk, nc);
@@ -124,4 +168,9 @@ export function solve(board, opts = {}) {
   }
 
   return { solved: false, moves: -1, reason: 'exhausted', nodes };
+}
+
+/** v2正本では solve() は最短操作数ソルバーを指す。 */
+export function solve(board, opts = {}) {
+  return solveOptimalSwipes(board, opts);
 }

@@ -1,38 +1,54 @@
-// 進行状態を持つ GameEngine。手数（通過マス数）・タイマー・退場・クリア判定を管理する。
+// 進行状態を持つ GameEngine。操作数・移動距離・タイマー・退場・クリア判定を管理する。
 // DOM・Canvas に一切依存しない（rules.js の純粋関数のみ使用）。
 
 import { computeSlide, applySlide, isCleared, legalMovesFor } from './rules.js';
 
+const DEFAULT_HISTORY_LIMIT = 500;
+
+function sanitizeNow(now) {
+  return Number.isFinite(now) && now >= 0 ? now : 0;
+}
+
 export class GameEngine {
-  /**
-   * @param {object} board 静的盤面（blocks に初期位置）
-   * @param {object} [meta] { seed, difficulty, shortestSolutionMoves }
-   */
   constructor(board, meta = {}) {
     this.board = board;
     this.meta = meta;
+    this.historyLimit = meta.historyLimit ?? DEFAULT_HISTORY_LIMIT;
     this.reset();
   }
 
   reset() {
     this.positions = this.board.blocks.map((b) => ({ x: b.x, y: b.y }));
-    this.moveCount = 0;
+    this.swipeCount = 0;
+    this.distanceCells = 0;
+    this.undoCount = 0;
     this.selectedIndex = -1;
-    this.startedAt = null; // 最初の操作で開始
+    this.status = 'ready';
+    this.startedAt = null;
     this.clearedAt = null;
+    this.finalElapsedMs = null;
+    this.history = [];
   }
 
-  elapsedMs(now = Date.now()) {
-    if (this.startedAt == null) return 0;
-    if (this.clearedAt != null) return this.clearedAt - this.startedAt;
-    return now - this.startedAt;
+  /** @deprecated v2ではdistanceCellsを使用する。内部コードでは使わない。 */
+  get moveCount() { return this.distanceCells; }
+
+  start(now = 0) {
+    if (this.status !== 'ready') return false;
+    this.startedAt = sanitizeNow(now);
+    this.status = 'playing';
+    return true;
   }
 
-  isCleared() {
-    return isCleared(this.positions);
+  elapsedMs(now = 0) {
+    if (this.status === 'ready' || this.startedAt == null) return 0;
+    if (this.status === 'cleared') return this.finalElapsedMs ?? 0;
+    const elapsed = sanitizeNow(now) - this.startedAt;
+    return Number.isFinite(elapsed) && elapsed > 0 ? elapsed : 0;
   }
 
-  /** 指定セルにいる（退場していない）ブロック番号（無ければ -1） */
+  isCleared() { return isCleared(this.positions); }
+
   blockAt(x, y) {
     for (let i = 0; i < this.positions.length; i++) {
       const p = this.positions[i];
@@ -43,42 +59,63 @@ export class GameEngine {
 
   select(index) { this.selectedIndex = index; }
   deselect() { this.selectedIndex = -1; }
+  legalMovesFor(index) { return legalMovesFor(this.board, this.positions, index); }
+  previewSlide(index, dir) { return computeSlide(this.board, this.positions, index, dir); }
 
-  legalMovesFor(index) {
-    return legalMovesFor(this.board, this.positions, index);
+  _pushHistory() {
+    this.history.push({
+      positions: this.positions.map((p) => (p ? { x: p.x, y: p.y } : null)),
+      swipeCount: this.swipeCount,
+      distanceCells: this.distanceCells,
+      status: this.status,
+    });
+    if (this.history.length > this.historyLimit) this.history.shift();
   }
 
-  /** スライド結果を覗き見る（アニメーション用。状態は変えない）。 */
-  previewSlide(index, dir) {
-    return computeSlide(this.board, this.positions, index, dir);
-  }
-
-  /**
-   * index のブロックを dir にスライドする。
-   * @returns {{ moved:boolean, steps:number, exit:boolean, cleared:boolean }}
-   */
-  tryMove(index, dir, now = Date.now()) {
-    if (this.clearedAt != null) return { moved: false, steps: 0, exit: false, cleared: true };
+  tryMove(index, dir, now = 0) {
+    if (this.status === 'cleared') return { moved: false, steps: 0, exit: false, cleared: true };
+    if (this.status !== 'playing') return { moved: false, steps: 0, exit: false, cleared: false };
     const applied = applySlide(this.board, this.positions, index, dir);
     if (!applied) return { moved: false, steps: 0, exit: false, cleared: false };
 
-    if (this.startedAt == null) this.startedAt = now;
+    this._pushHistory();
     this.positions = applied.positions;
-    this.moveCount += applied.steps;
+    this.swipeCount += 1;
+    this.distanceCells += applied.steps;
 
     const cleared = this.isCleared();
-    if (cleared && this.clearedAt == null) this.clearedAt = now;
+    if (cleared) {
+      this.clearedAt = sanitizeNow(now);
+      this.finalElapsedMs = this.elapsedMs(this.clearedAt);
+      this.status = 'cleared';
+    }
     return { moved: true, steps: applied.steps, exit: applied.exit, cleared };
   }
 
-  /** 描画用スナップショット（読み取り専用想定）。 */
+  undo() {
+    if (this.status !== 'playing' || this.history.length === 0) {
+      return { undone: false };
+    }
+    const prev = this.history.pop();
+    this.positions = prev.positions.map((p) => (p ? { x: p.x, y: p.y } : null));
+    this.swipeCount = prev.swipeCount;
+    this.distanceCells = prev.distanceCells;
+    this.status = 'playing';
+    this.undoCount += 1;
+    this.selectedIndex = -1;
+    return { undone: true };
+  }
+
   getFrameState() {
     return {
       board: this.board,
       positions: this.positions,
-      moveCount: this.moveCount,
+      swipeCount: this.swipeCount,
+      distanceCells: this.distanceCells,
+      undoCount: this.undoCount,
+      status: this.status,
       selectedIndex: this.selectedIndex,
-      cleared: this.clearedAt != null,
+      cleared: this.status === 'cleared',
     };
   }
 }

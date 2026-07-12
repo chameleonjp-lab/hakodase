@@ -9,8 +9,8 @@ import { HUD } from './ui/hud.js';
 import { LocalRankingService } from './services/ranking.js';
 import { PALETTE } from './core/palette.js';
 import { gateForBlock, gateOpeningCell } from './core/rules.js';
+import { approachPoint, pointReached, clampDt } from './render/animation.js';
 
-const EASING = 0.32;
 const GRAVITY = 9;
 
 class Game {
@@ -40,6 +40,8 @@ class Game {
     this.particles = [];
     this.lastTs = 0;
     this.savedThisRound = false;
+    this.inputLocked = false;
+    this.pendingStart = false;
 
     this._setupControls();
     this._setupInput();
@@ -79,7 +81,7 @@ class Game {
   _setupInput() {
     this.input = new PointerInput(this.canvas, this.renderer, {
       pickBlockAt: (cell) => {
-        if (!this.engine || this.engine.clearedAt != null) return -1;
+        if (!this.engine || this.inputLocked || this.engine.status !== 'playing') return -1;
         const idx = this.engine.blockAt(cell.x, cell.y);
         if (idx >= 0) {
           this.engine.select(idx);
@@ -115,15 +117,17 @@ class Game {
         this.dragIndex = -1;
         this.preview = null;
         if (dir) {
-          const res = this.engine.tryMove(index, dir);
+          const res = this.engine.tryMove(index, dir, performance.now());
           if (res.moved) {
-            this.hud.setMoves(this.engine.moveCount);
+            this.hud.setStats(this.engine.swipeCount, this.engine.distanceCells);
+            this.inputLocked = true;
             if (res.exit) this._onExit(index);
             if (res.cleared) this._onClear();
           }
         }
         this.engine.deselect();
       },
+      onCancel: () => { this.dragOffset = { x: 0, y: 0 }; this.dragIndex = -1; this.preview = null; if (this.engine) this.engine.deselect(); },
       onTapEmpty: () => { if (this.engine) this.engine.deselect(); },
     });
   }
@@ -156,11 +160,13 @@ class Game {
     this.particles = [];
     this.savedThisRound = false;
     if (this._fit) this._fit(); // 盤面アスペクトに合わせて再フィット
-    this.hud.setMoves(0);
+    this.hud.setStats(0, 0);
     this.hud.setTime(0);
-    this.hud.setTarget(this.meta.shortestSolutionMoves, this.meta.exact);
+    this.hud.setTarget(this.meta.optimalSwipes, this.meta.exact);
     this.hud.setSeed(this.meta.seed);
     this.hud.message('箱をドラッグ → 壁まで滑る。同じ色（記号）の搬出口から出そう。', 'info');
+    this.pendingStart = true;
+    this.inputLocked = false;
     this._refreshRanking();
   }
 
@@ -170,9 +176,11 @@ class Game {
     this._resetView();
     this.particles = [];
     this.savedThisRound = false;
-    this.hud.setMoves(0);
+    this.hud.setStats(0, 0);
     this.hud.setTime(0);
-    this.hud.message('やりなおし。タイマーは最初の操作で再スタートします。', 'info');
+    this.pendingStart = true;
+    this.inputLocked = false;
+    this.hud.message('やりなおし。次の描画後に暫定タイマーを再スタートします。', 'info');
   }
 
   _resetView() {
@@ -194,15 +202,15 @@ class Game {
   }
 
   async _onClear() {
-    const timeMs = this.engine.elapsedMs();
-    this.hud.message(`クリア！ ${(timeMs / 1000).toFixed(2)}秒 / ${this.engine.moveCount}手`, 'success');
+    const timeMs = this.engine.elapsedMs(performance.now());
+    this.hud.message(`クリア！ ${(timeMs / 1000).toFixed(2)}秒 / ${this.engine.swipeCount}操作 / 移動${this.engine.distanceCells}マス`, 'success');
     this._spawnParticles();
     if (!this.savedThisRound) {
       this.savedThisRound = true;
       const clearedAt = new Date().toISOString();
       await this.ranking.saveScore({
         seed: this.meta.seed, difficulty: this.meta.difficulty,
-        timeMs, moves: this.engine.moveCount, clearedAt,
+        timeMs, swipeCount: this.engine.swipeCount, distanceCells: this.engine.distanceCells, clearedAt,
       });
       await this._refreshRanking(clearedAt);
     }
@@ -252,14 +260,17 @@ class Game {
       let tx = this.target[i].x, ty = this.target[i].y;
       if (i === this.dragIndex && !this.exiting[i]) { tx += this.dragOffset.x; ty += this.dragOffset.y; }
 
-      this.view[i].x += (tx - this.view[i].x) * EASING;
-      this.view[i].y += (ty - this.view[i].y) * EASING;
-      if (Math.abs(this.view[i].x - tx) < 0.01) this.view[i].x = tx;
-      if (Math.abs(this.view[i].y - ty) < 0.01) this.view[i].y = ty;
+      this.view[i] = approachPoint(this.view[i], { x: tx, y: ty }, dt);
 
-      if (this.exiting[i] && Math.abs(this.view[i].x - this.target[i].x) < 0.05 && Math.abs(this.view[i].y - this.target[i].y) < 0.05) {
-        this.view[i] = null; // 退場アニメ完了
+      if (this.exiting[i] && pointReached(this.view[i], this.target[i], 0.01)) {
+        this.view[i] = null;
+        this.exiting[i] = false;
+        this.inputLocked = this.exiting.some(Boolean); // 退場アニメ完了
       }
+    }
+    if (!this.exiting.some(Boolean) && this.engine && this.engine.status === 'playing') {
+      const animating = this.view.some((p, i) => p && this.target[i] && !pointReached(p, this.target[i], 0.01));
+      if (!animating) this.inputLocked = false;
     }
     if (this.particles.length) {
       for (const p of this.particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += GRAVITY * dt; p.life -= dt; }
@@ -268,16 +279,18 @@ class Game {
   }
 
   _loop(ts) {
-    const dt = this.lastTs ? Math.min(0.05, (ts - this.lastTs) / 1000) : 0;
+    const dt = this.lastTs ? clampDt((ts - this.lastTs) / 1000) : 0;
     this.lastTs = ts;
     if (this.engine) {
       this._updateAnimations(dt);
-      if (this.engine.startedAt != null) this.hud.setTime(this.engine.elapsedMs());
+      if (this.engine.startedAt != null) this.hud.setTime(this.engine.elapsedMs(ts));
       const fs = this.engine.getFrameState();
       fs.viewPositions = this.view;
       fs.particles = this.particles;
       fs.preview = this.preview;
       this.renderer.render(fs);
+      // Phase 2のGO開始までの暫定処理: 盤面を描いた同じフレーム内で開始する。
+      if (this.pendingStart && this.engine) { this.engine.start(ts); this.pendingStart = false; }
     }
     requestAnimationFrame((t) => this._loop(t));
   }

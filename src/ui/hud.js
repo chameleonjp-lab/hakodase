@@ -1,41 +1,28 @@
-// HUD: タイマー・手数・メッセージ・ランキング表示の DOM 更新のみ担当。
-// 毎フレームではなくイベント時/必要時に更新する（レイアウト再計算を避ける）。
+// HUD: タイマー・操作数・移動距離・メッセージ・ランキング表示の DOM 更新のみ担当。
 
-/** ミリ秒を「12.34秒」形式へ。 */
 export function formatTime(ms) {
   return (ms / 1000).toFixed(2) + '秒';
 }
 
 export class HUD {
-  /**
-   * @param {object} els { time, moves, target, message, ranking, difficulty, seed }
-   */
-  constructor(els) {
-    this.els = els;
-    this._lastTimeText = '';
-  }
+  constructor(els) { this.els = els; this._lastTimeText = ''; }
 
   setTime(ms) {
     const t = formatTime(ms);
-    if (t !== this._lastTimeText) {
-      this.els.time.textContent = t;
-      this._lastTimeText = t;
-    }
+    if (t !== this._lastTimeText) { this.els.time.textContent = t; this._lastTimeText = t; }
   }
 
-  setMoves(n) {
-    this.els.moves.textContent = String(n);
+  setStats(swipeCount, distanceCells = 0) {
+    this.els.moves.textContent = `${swipeCount}操作 / 移動${distanceCells}マス`;
   }
 
-  setTarget(moves, exact) {
+  setTarget(optimalSwipes, exact) {
     if (!this.els.target) return;
-    this.els.target.textContent = exact ? `最短${moves}手` : `最短${moves}手以上`;
+    if (!Number.isFinite(optimalSwipes) || optimalSwipes < 0) this.els.target.textContent = '最短—';
+    else this.els.target.textContent = exact ? `最短${optimalSwipes}操作` : `最短${optimalSwipes}操作以上`;
   }
 
-  setSeed(seed, difficultyLabel) {
-    if (this.els.seed) this.els.seed.textContent = `seed: ${seed}`;
-    if (this.els.difficulty) this.els.difficulty.value = '';
-  }
+  setSeed(seed) { if (this.els.seed) this.els.seed.textContent = `seed: ${seed}`; }
 
   message(text, kind = 'info') {
     if (!this.els.message) return;
@@ -43,11 +30,6 @@ export class HUD {
     this.els.message.dataset.kind = kind;
   }
 
-  /**
-   * ランキングを描画。
-   * @param {Array} scores
-   * @param {object} [opts] { highlightAt: ISO string }
-   */
   renderRanking(scores, opts = {}) {
     const root = this.els.ranking;
     if (!root) return;
@@ -63,17 +45,10 @@ export class HUD {
       const li = document.createElement('li');
       li.className = 'rank-row';
       if (opts.highlightAt && s.clearedAt === opts.highlightAt) li.classList.add('rank-new');
-      const rank = document.createElement('span');
-      rank.className = 'rank-pos';
-      rank.textContent = `${i + 1}`;
-      const time = document.createElement('span');
-      time.className = 'rank-time';
-      time.textContent = formatTime(s.timeMs);
-      const meta = document.createElement('span');
-      meta.className = 'rank-meta';
-      meta.textContent = `${s.moves}手`;
-      li.append(rank, time, meta);
-      root.appendChild(li);
+      const rank = document.createElement('span'); rank.className = 'rank-pos'; rank.textContent = `${i + 1}`;
+      const time = document.createElement('span'); time.className = 'rank-time'; time.textContent = formatTime(s.timeMs);
+      const meta = document.createElement('span'); meta.className = 'rank-meta'; meta.textContent = `${s.swipeCount}操作 / 移動${s.distanceCells}マス`;
+      li.append(rank, time, meta); root.appendChild(li);
     });
   }
 }

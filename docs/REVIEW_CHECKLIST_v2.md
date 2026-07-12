@@ -56,3 +56,15 @@
 - [ ] secret key、service role key、管理用トークンを含まない。
 - [ ] 推測SQLをリポジトリへ追加していない。
 - [ ] Three.js/WebGLを今回の実装対象として扱っていない。
+
+
+## Phase 1 実装確認（2026-07-12）
+- [x] `swipeCount` と `distanceCells` を分離した。
+- [x] `GameEngine.start(now)` と単調時刻の経過時間計測を追加した。
+- [x] `pointercancel` / `lostpointercapture` は操作を確定しない。
+- [x] アニメーション計算を経過時間型へ変更した。
+- [x] `solveOptimalSwipes()` を追加し、`solve()` を最短操作数へ合わせた。
+- [x] undo履歴のコアAPIを追加した。
+- [x] v2ローカルランキングキーへ分離した。
+- [ ] ブラウザ実機確認は未実施。
+- [ ] Phase 2画面、正式結果、undoボタンは未実装。

@@ -112,3 +112,10 @@
 1. `renderer.js` の interface（init/resize/render/destroy/clientToCell）を維持。
 2. `ThreeRenderer` を新規作成し同 interface を実装。
 3. `frameState` 形式を保ちながら統合する。ただし3D化にはカメラ、光源、立体物管理、ヒット判定、画面サイズ変更、高解像度負荷、資源破棄、WebGLコンテキスト消失と復帰が必要であり、一行差し替えだけで完成とは扱わない。
+
+## Phase 1 実装メモ（2026-07-12）
+- 現行画面はまだ旧MVP型だが、中核指標はv2契約に合わせて `swipeCount`（操作）と `distanceCells`（移動マス）へ分離した。
+- 旧MVPの距離条件は `shortestDistanceCells` として残し、v2公式難易度の `optimalSwipes >= 20` とは混同しない。現行ランダム盤面はPhase 3の検証済み公式問題ではない。
+- 競技経過時間は `GameEngine.start(now)` と単調時刻注入で扱う。現行画面ではPhase 2までの暫定として、初回描画フレーム内で開始する。
+- ローカルランキングは `hakodase.ranking.v2` を使い、旧v1距離記録を新操作記録へ混ぜない。
+- Supabase、SQL、Three.js/WebGL、出荷レーン、出荷シャッター、Phase 2画面状態は未実装。

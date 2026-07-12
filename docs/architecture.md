@@ -102,3 +102,10 @@
 - 複数マスブロック（w/h を実描画・ルールに反映）。
 - アンドゥ＋一方通行/可動ギミックの生成導入。
 - RemoteRankingService（オンライン）。生成/探索の Web Worker 化（コアは純粋関数）。
+
+## Phase 1 実装メモ（2026-07-12）
+- 現行画面はまだ旧MVP型だが、中核指標はv2契約に合わせて `swipeCount`（操作）と `distanceCells`（移動マス）へ分離した。
+- 旧MVPの距離条件は `shortestDistanceCells` として残し、v2公式難易度の `optimalSwipes >= 20` とは混同しない。現行ランダム盤面はPhase 3の検証済み公式問題ではない。
+- 競技経過時間は `GameEngine.start(now)` と単調時刻注入で扱う。現行画面ではPhase 2までの暫定として、初回描画フレーム内で開始する。
+- ローカルランキングは `hakodase.ranking.v2` を使い、旧v1距離記録を新操作記録へ混ぜない。
+- Supabase、SQL、Three.js/WebGL、出荷レーン、出荷シャッター、Phase 2画面状態は未実装。

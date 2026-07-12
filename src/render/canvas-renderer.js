@@ -5,7 +5,7 @@ import { Renderer } from './renderer.js';
 import { PALETTE } from '../core/palette.js';
 import { onewayDirAt, key } from '../core/rules.js';
 
-const MARGIN = 16; // ゲート表示のための外周マージン(px)
+const MARGIN = 24; // ゲート表示のための外周マージン(px)
 
 export class CanvasRenderer extends Renderer {
   init(canvas, options = {}) {
@@ -199,15 +199,20 @@ export class CanvasRenderer extends Renderer {
       ctx.restore();
       // 外向き矢印（小）。
       this._drawArrow(ctx, ax, ay, Math.max(3, t * 0.5), adir, color.hex);
-      // 記号（マージンに余裕があれば）。
-      ctx.fillStyle = color.hex;
-      ctx.font = `bold ${Math.floor(Math.min(MARGIN, L.cell) * 0.5)}px system-ui, sans-serif`;
+      // 箱と同じ記号を矢印から少しずらして描く。色だけに頼らない。
+      ctx.fillStyle = '#f8fafc';
+      ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+      ctx.lineWidth = 3;
+      ctx.font = `bold ${Math.floor(Math.min(MARGIN, L.cell) * 0.55)}px system-ui, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      // 記号は矢印と重ならない位置（さらに外側）に小さく。
-      const ox = gate.side === 'left' ? sx - 0 : gate.side === 'right' ? sx + 0 : sx;
-      // 省スペースのため記号は矢印で代替（混雑回避）。必要なら下行を有効化。
-      void ox;
+      let tx = sx, ty = sy;
+      if (gate.side === 'left') tx -= Math.max(7, t);
+      else if (gate.side === 'right') tx += Math.max(7, t);
+      else if (gate.side === 'top') ty -= Math.max(7, t);
+      else ty += Math.max(7, t);
+      ctx.strokeText(color.symbol, tx, ty);
+      ctx.fillText(color.symbol, tx, ty);
     }
   }
 
