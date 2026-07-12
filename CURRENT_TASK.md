@@ -1,58 +1,42 @@
-# CURRENT_TASK: HAKODASE v2 仕様契約の確定
+# CURRENT_TASK: HAKODASE Phase 1 現行コードの正しさ
 
 ## 目的
-HAKODASE v2のゲーム仕様、競技条件、スマホ操作、性能、ランキング、公開方針を文書で確定し、後続実装が別仕様へ逸脱しない状態を作る。
+旧MVPの中核コードをHAKODASE v2 Phase 1契約へ合わせ、操作数・移動距離・競技時計・入力中断・経過時間型アニメーション・最短操作ソルバー・undo履歴の土台を実装する。
+
+## 基準ブランチとコミット
+- 基準ブランチ: `work`（リモート未設定のためローカルHEADを採用）
+- 基準コミット: `825779445558eb1228bf44c13b70abdd7db5d901`
+- 作業ブランチ: `codex/hakodase-phase1-correctness`
 
 ## 対象
-- v2契約文書の新規作成
-- 既存文書のうち、旧MVP仕様とv2契約の関係が分かる導線の更新
+- `src/core/` の指標、時計、undo、ソルバー、旧MVP生成メタデータ
+- Pointer Eventsの中断処理
+- Canvas表示の出口記号、経過時間型アニメーション、入力ロック
+- HUD表示とローカルランキングv2保存キー
+- Phase 1に対応するNode標準テスト
 
 ## 対象外
-- ゲームコード、画面、盤面生成、Supabase通信、SQL、Three.js/WebGLの実装
-- 既存UIの変更
-- `main` への直接コミット、直接push、直接マージ
+ホーム画面、名前入力、3・2・1カウントダウン、正式な結果画面、3モード分離、公式日替わり問題、盤面生成第2世代、箱8〜14個、同色複数箱、Supabase、SQL、オンラインランキング、出荷レーン/シャッター生成、Three.js/WebGL、Web Worker、TypeScript化、新依存は実装しない。
 
-## 開始時情報
-- 開始時ブランチ: `work`
-- 開始時コミット: `4ea756d848bcb8b137c9491a381eeecae1c17bc8`
-- 基準コミット候補との差: 開始時HEADが基準コミット候補と一致
-- ローカルに `main` ブランチなし
-- `origin/main` なし
-- `git remote -v` は空で、リモート未設定
-- 開始時の未コミット差分: なし
+## 変更ファイル
+- `src/core/engine.js`, `src/core/solver.js`, `src/core/generator.js`
+- `src/input/pointer-input.js`
+- `src/render/animation.js`, `src/render/canvas-renderer.js`
+- `src/main.js`, `src/ui/hud.js`, `src/services/ranking.js`
+- `test/engine.test.js`, `test/solver.test.js`, `test/generator.test.js`, `test/ranking.test.js`, `test/input.test.js`, `test/hud.test.js`, `test/animation.test.js`
+- `README.md`, `docs/requirements.md`, `docs/implementation-plan.md`, `docs/architecture.md`, `docs/REVIEW_CHECKLIST_v2.md`, `DECISION_LOG.md`, `CURRENT_TASK.md`
 
-## 作業ブランチ
-- `fix/hakodase-contract-v2`
-
-## 変更対象
-### 新規
-- `CURRENT_TASK.md`
-- `DECISION_LOG.md`
-- `docs/EXPERIENCE_CONTRACT_v2.md`
-- `docs/GAME_CONTRACT_v2.md`
-- `docs/SCORE_RANKING_CONTRACT_v2.md`
-- `docs/MOBILE_TOUCH_CONTRACT_v2.md`
-- `docs/PERFORMANCE_BUDGET_v2.md`
-- `docs/ORIGINALITY_v2.md`
-- `docs/REVIEW_CHECKLIST_v2.md`
-
-### 更新
-- `README.md`
-- `CLAUDE.md`
-- `docs/requirements.md`
-- `docs/implementation-plan.md`
-- `docs/architecture.md`
-
-## 完了条件
-- v2契約が上記文書に記録されている
-- 既存文書からv2正本へ辿れる
-- 旧MVP仕様とv2契約の違いが明示されている
-- `git diff --check` と `npm test` を実行している
-- Markdown相対リンク、用語、未確認事項を確認している
-- 作業ブランチにコミットしている
+## 検証
+- `npm test`: 59件合格
+- `git diff --check`: 合格
+- 静的検索で旧用語・互換箇所を確認
+- ブラウザ実機確認: 未実施
 
 ## 残課題
-- Phase 1以降で実装をv2契約へ合わせる
-- Supabaseの現行RPC、テーブル、問題ID対応をPhase 4で確認する
-- GAME_SLUG、公開URL、実験場URL、名前最大文字数を確認する
-- 実機検証をPhase 6で行う
+- 現行旧MVP生成の `optimalSwipes` は箱数程度で、v2公式条件の20操作以上ではない。
+- Phase 2でホーム/モード/3・2・1/正式結果/undoボタンを実装する。
+- Phase 3で検証済み問題集と盤面生成第2世代を実装する。
+- Phase 4以降でSupabaseの問題ID対応を確認する。
+
+## Phase 2へ引き継ぐ内容
+現行画面では盤面描画後に `engine.start(performance.now())` 相当を呼ぶ暫定開始にしている。Phase 2ではGO表示と同じ開始処理へ置き換える。

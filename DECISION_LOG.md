@@ -26,3 +26,14 @@
 - 名前の最大文字数: TBD
 - Supabase共通RPCが `puzzleId` または `challenge_id` を扱えるか: 未確認
 - 実機確認結果: 未確認
+
+## 2026-07-12: Phase 1 中核コード整合
+
+### 決定
+1. 旧ローカルランキングとは別に `hakodase.ranking.v2` を使い、`swipeCount` と `distanceCells` を保存する。
+2. Phase 2のカウントダウン実装まで、現行画面では最初の描画フレーム内で暫定的に `GameEngine.start()` を一度だけ呼ぶ。
+3. v2正本名として `solveOptimalSwipes()` を追加し、`solve()` は最短操作数ソルバーを指す。距離最小化は診断用 `solveMinimumDistance()` とする。
+4. `moveCount` は非推奨getterとして `distanceCells` 互換値のみ残し、書き込み可能状態としては残さない。
+
+### 判断理由
+旧MVPの距離指標とv2の操作指標を保存・表示・生成メタデータで混ぜないため。現行UIを全面変更せず遊べる状態を維持しつつ、Phase 2で正式開始処理へ差し替えられるようにする。

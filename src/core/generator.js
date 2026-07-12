@@ -1,29 +1,29 @@
-// seed 付き盤面生成。スライド＆退場モデル。最短20手保証（マンハッタン下界）とフォールバックを持つ。
+// seed 付き盤面生成。スライド＆退場モデル。旧MVP距離条件（マンハッタン下界）とフォールバックを持つ。
 // 無限ループ禁止: 試行回数に上限を持つ。DOM 非依存。
 //
 // 生成方針（逆生成・探索不要）:
 //  - 各ブロックを「自分の同色ゲートから盤内へ滑り込ませて」配置する。挿入時に通路が空である限り、
 //    その逆順（後から入れたものから先に出す）が必ず成立する正解手順になる＝常に可解。
-//  - 各ブロックは自分のゲートと一直線上に並ぶので、最短手数(通過マス数の総和)はマンハッタン距離総和に一致し、
+//  - 各ブロックは自分のゲートと一直線上に並ぶので、最小通過マス数はマンハッタン距離総和に一致し、
 //    解析的に確定できる（探索不要）。
-//  - min20 難易度は総和 >= 22 を満たす配置のみ採用（>=20 の保証）。
+//  - legacyDistance 難易度は総和 >= 22 を満たす配置のみ採用（>=20 の保証）。
 //  - 仕上げに quickSolvable で可解性を再確認（十分条件）。失敗時は seed を変えて再試行→フォールバック。
 //  - 盤面サイズはタイムアタック向けに縦長 7×9 を基本にする。
 
 import { makeRng, hashSeed } from './rng.js';
 import { key, manhattanLowerBound, isWall, occupantAt } from './rules.js';
-import { quickSolvable } from './solver.js';
+import { quickSolvable, solveOptimalSwipes } from './solver.js';
 
 /** 難易度定義。colors = 色数（= ブロック数, 1色1ブロック1ゲート）。 */
 export const DIFFICULTIES = {
-  practice: { colors: 2, width: 5, height: 6, walls: 2, min20: false, ranking: false, label: '練習(2色)' },
-  easy: { colors: 3, width: 6, height: 8, walls: 4, min20: false, ranking: false, label: '初級(3色)' },
-  normal: { colors: 4, width: 7, height: 9, walls: 6, min20: true, ranking: true, label: '標準(4色)' },
-  hard: { colors: 5, width: 7, height: 9, walls: 7, min20: true, ranking: true, label: '上級(5色)' },
-  expert: { colors: 6, width: 7, height: 9, walls: 8, min20: true, ranking: true, label: '達人(6色)' },
+  practice: { colors: 2, width: 5, height: 6, walls: 2, legacyDistance: false, ranking: false, label: '練習(2色)' },
+  easy: { colors: 3, width: 6, height: 8, walls: 4, legacyDistance: false, ranking: false, label: '初級(3色)' },
+  normal: { colors: 4, width: 7, height: 9, walls: 6, legacyDistance: true, ranking: true, label: '標準(4色)' },
+  hard: { colors: 5, width: 7, height: 9, walls: 7, legacyDistance: true, ranking: true, label: '上級(5色)' },
+  expert: { colors: 6, width: 7, height: 9, walls: 8, legacyDistance: true, ranking: true, label: '達人(6色)' },
 };
 
-export const MIN20_THRESHOLD = 22;
+export const LEGACY_DISTANCE_THRESHOLD = 22;
 const MAX_ATTEMPTS = 200;
 
 function shuffle(arr, rng) {
@@ -109,13 +109,13 @@ function buildSolvableBoard(cfg, rng) {
 
 /**
  * 検証済みフォールバック盤面。各色が独立した行を真横に滑って左の同色ゲートから出るだけ。
- * 相互干渉ゼロで常に可解。最短手数 = width*colors（解析的に厳密）。
+ * 相互干渉ゼロで常に可解。最小通過マス数 = width*colors（解析的に厳密）。
  */
 export function getFallbackBoard(difficulty) {
   const cfg = DIFFICULTIES[difficulty] || DIFFICULTIES.normal;
   const colors = cfg.colors;
-  const width = 7;
-  const height = Math.max(9, colors);
+  const width = cfg.width;
+  const height = cfg.height;
   const blocks = [];
   const gates = [];
   for (let c = 0; c < colors; c++) {
@@ -128,7 +128,7 @@ export function getFallbackBoard(difficulty) {
 /**
  * 盤面を生成する。
  * @param {object} options { seed, difficulty }
- * @returns {{ board, seed, difficulty, shortestSolutionMoves, exact, fromFallback }}
+ * @returns {{ board, seed, difficulty, shortestDistanceCells, optimalSwipes, exact, fromFallback }}
  */
 export function generateBoard(options = {}) {
   const difficulty = options.difficulty && DIFFICULTIES[options.difficulty] ? options.difficulty : 'normal';
@@ -143,14 +143,15 @@ export function generateBoard(options = {}) {
 
     const startPos = board.blocks.map((b) => ({ x: b.x, y: b.y }));
     const lb = manhattanLowerBound(board, startPos);
-    if (cfg.min20 && lb < MIN20_THRESHOLD) continue;
+    if (cfg.legacyDistance && lb < LEGACY_DISTANCE_THRESHOLD) continue;
     if (!quickSolvable(board)) continue; // 念のための十分条件チェック
 
     return {
       board,
       seed: baseSeed,
       difficulty,
-      shortestSolutionMoves: lb, // 一直線配置のため最短手数に一致（厳密）
+      shortestDistanceCells: lb,
+      optimalSwipes: solveOptimalSwipes(board, { maxNodes: 20000 }).optimalSwipes,
       exact: true,
       fromFallback: false,
     };
@@ -158,5 +159,5 @@ export function generateBoard(options = {}) {
 
   const board = getFallbackBoard(difficulty);
   const moves = manhattanLowerBound(board, board.blocks.map((b) => ({ x: b.x, y: b.y })));
-  return { board, seed: baseSeed, difficulty, shortestSolutionMoves: moves, exact: true, fromFallback: true };
+  return { board, seed: baseSeed, difficulty, shortestDistanceCells: moves, optimalSwipes: solveOptimalSwipes(board, { maxNodes: 20000 }).optimalSwipes, exact: true, fromFallback: true };
 }

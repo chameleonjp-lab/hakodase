@@ -14,7 +14,8 @@ test('同じ seed・難易度なら同じ盤面が生成される', () => {
   assert.deepEqual(a.board.blocks, b.board.blocks);
   assert.deepEqual(a.board.gates, b.board.gates);
   assert.deepEqual(a.board.walls, b.board.walls);
-  assert.equal(a.shortestSolutionMoves, b.shortestSolutionMoves);
+  assert.equal(a.shortestDistanceCells, b.shortestDistanceCells);
+  assert.equal(a.optimalSwipes, b.optimalSwipes);
 });
 
 test('異なる seed なら（多くの場合）異なる盤面になる', () => {
@@ -23,11 +24,11 @@ test('異なる seed なら（多くの場合）異なる盤面になる', () =>
   assert.notDeepEqual(a.board.blocks, b.board.blocks);
 });
 
-test('ランキング難易度は最短20手以上かつ可解', () => {
+test('ランキング難易度は旧MVP距離20以上かつ可解', () => {
   for (const diff of ['normal', 'hard', 'expert']) {
     for (const seed of ['s1', 's2', 's3', 's4', 's5']) {
       const r = generateBoard({ seed, difficulty: diff });
-      assert.ok(r.shortestSolutionMoves >= 20, `${diff}/${seed}: ${r.shortestSolutionMoves}`);
+      assert.ok(r.shortestDistanceCells >= 20, `${diff}/${seed}: ${r.shortestDistanceCells}`);
       assert.ok(manhattanLowerBound(r.board, posOf(r.board)) >= 20, `${diff}/${seed} 下界不足`);
       assert.equal(quickSolvable(r.board), true, `${diff}/${seed} 可解でない`);
       assert.equal(r.fromFallback, false, `${diff}/${seed} がフォールバック`);
@@ -52,7 +53,7 @@ test('各ブロックに同色の出口ゲートが対応する', () => {
   }
 });
 
-test('フォールバック盤面は可解かつ最短20手以上（min20難易度）', () => {
+test('フォールバック盤面は可解かつ旧距離条件を維持する', () => {
   for (const diff of ['normal', 'hard', 'expert']) {
     const board = getFallbackBoard(diff);
     assert.equal(quickSolvable(board), true, `${diff} fallback 可解でない`);
@@ -71,3 +72,7 @@ test('難易度定義の色数は 2〜6 の範囲', () => {
     assert.ok(c >= 2 && c <= 6, `${k}: ${c}`);
   }
 });
+
+test('フォールバックの寸法が難易度定義と一致する', () => { for (const diff of Object.keys(DIFFICULTIES)) { const b=getFallbackBoard(diff); assert.equal(b.width, DIFFICULTIES[diff].width); assert.equal(b.height, DIFFICULTIES[diff].height); } });
+
+test('shortestDistanceCells と optimalSwipes を混同しない', () => { const r=generateBoard({seed:'metric',difficulty:'normal'}); assert.ok(r.shortestDistanceCells >= r.optimalSwipes); assert.equal(Number.isFinite(r.optimalSwipes), true); });
