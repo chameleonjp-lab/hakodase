@@ -8,50 +8,126 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234cc2ff'/%3E%3Crect x='8' y='8' width='16' height='16' rx='4' fill='%2304222f'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="styles/main.css" />
 </head>
-<body>
-  <main class="app">
+<body data-app-state="home">
+  <main class="app" id="app">
     <header class="topbar">
       <h1 class="title">HAKODASE<span class="subtitle">ハコダセ｜倉庫の色分け出荷</span></h1>
+      <p id="playerBadge" class="player-badge" hidden></p>
     </header>
 
-    <section class="stats">
-      <div class="stat"><span class="stat-label">タイム</span><span id="time" class="stat-value">0.00秒</span></div>
-      <div class="stat"><span class="stat-label">手数</span><span id="moves" class="stat-value">0</span></div>
-      <div class="stat"><span class="stat-label">目標</span><span id="target" class="stat-value">-</span></div>
-    </section>
+    <section id="screenHome" class="screen screen-card screen-home" data-screen="home">
+      <p class="lead">箱を滑らせ、順番と倉庫設備を読み、同じ印の搬出口からすべて出荷する短時間パズル。</p>
 
-    <section class="board-wrap">
-      <canvas id="board"></canvas>
-    </section>
-
-    <p id="message" class="message" data-kind="info"></p>
-
-    <section class="controls">
-      <label class="ctrl">
-        <span>難易度</span>
-        <select id="difficulty"></select>
-      </label>
-      <button id="retry" class="btn">やりなおし</button>
-      <button id="new" class="btn btn-primary">新しい盤面</button>
-    </section>
-
-    <form id="seedForm" class="seed-row">
-      <input id="seedInput" class="seed-input" type="text" inputmode="text" placeholder="seed を指定（任意）" />
-      <button class="btn" type="submit">この seed で出題</button>
-      <span id="seed" class="seed-current"></span>
-    </form>
-
-    <section class="ranking-section">
-      <div class="ranking-head">
-        <h2>ローカルランキング（この難易度）</h2>
-        <button id="clearRanking" class="btn btn-ghost">記録を消去</button>
+      <div class="section-heading">
+        <h2>遊ぶモード</h2>
+        <span id="savedNameLabel" class="small-note"></span>
       </div>
-      <ol id="ranking" class="ranking"></ol>
+
+      <div class="mode-list" role="radiogroup" aria-label="遊ぶモード">
+        <button class="mode-card is-selected" type="button" data-mode="daily" role="radio" aria-checked="true">
+          <span class="mode-title">本日の出荷</span>
+          <span class="mode-note">同じ問題で競う公式モード</span>
+          <span class="mode-badge">公式問題は準備中</span>
+        </button>
+        <button class="mode-card" type="button" data-mode="endless" role="radio" aria-checked="false">
+          <span class="mode-title">エンドレス</span>
+          <span class="mode-note">seed付き盤面を繰り返し遊ぶ</span>
+        </button>
+        <button class="mode-card" type="button" data-mode="practice" role="radio" aria-checked="false">
+          <span class="mode-title">練習</span>
+          <span class="mode-note">短い盤面で基本操作を確認</span>
+        </button>
+      </div>
+
+      <p id="modeSummary" class="mode-summary"></p>
+      <button id="homeStart" class="btn btn-primary btn-wide" type="button">名前を確認して始める</button>
+
+      <div class="home-actions">
+        <button id="homeRules" class="btn" type="button">遊び方</button>
+        <button id="homeRanking" class="btn" type="button">端末内記録</button>
+        <button id="homeShare" class="btn" type="button">ゲームをシェア</button>
+        <a id="homeLab" class="btn btn-link" href="https://chameleonjp.codeberg.page/chameleonjp_lab/">実験場へ戻る</a>
+      </div>
+      <p id="homeMessage" class="message" data-kind="info" aria-live="polite"></p>
     </section>
 
-    <footer class="howto">
-      <p>箱をドラッグすると壁・他の箱・盤端に当たるまで一気に滑ります。各箱を同じ色（記号）の搬出口から盤外へ出すとクリア。出す順番がカギです。</p>
-    </footer>
+    <section id="screenNameConfirm" class="screen screen-card" data-screen="nameConfirm" hidden>
+      <div class="section-heading">
+        <h2>プレイヤー名の確認</h2>
+        <span id="nameModeLabel" class="mode-chip"></span>
+      </div>
+      <p class="small-note">ランキング対応に備え、開始前に名前を確認します。絵文字と記号も使えます。</p>
+      <form id="nameForm" class="name-form" novalidate>
+        <label for="playerNameInput">プレイヤー名</label>
+        <input id="playerNameInput" class="name-input" type="text" autocomplete="nickname" enterkeyhint="done" aria-describedby="nameHint nameError" />
+        <p id="nameHint" class="small-note">前後の空白を除き、20文字まで。</p>
+        <p id="nameError" class="form-error" role="alert" aria-live="polite"></p>
+        <div class="button-row">
+          <button id="nameBack" class="btn" type="button">戻る</button>
+          <button class="btn btn-primary" type="submit">この名前で準備</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="screenCountdown" class="screen screen-card screen-center" data-screen="countdown" hidden aria-live="polite">
+      <p class="countdown-placeholder">出荷準備中…</p>
+    </section>
+
+    <section id="screenPlaying" class="screen screen-playing" data-screen="playing" hidden>
+      <div class="run-strip">
+        <span id="runPlayer"></span>
+        <span id="runMode"></span>
+      </div>
+
+      <section class="stats" aria-label="プレイ状況">
+        <div class="stat"><span class="stat-label">タイム</span><span id="time" class="stat-value">0.00秒</span></div>
+        <div class="stat"><span class="stat-label">操作</span><span id="moves" class="stat-value">0操作 / 移動0マス</span></div>
+        <div class="stat"><span class="stat-label">目標</span><span id="target" class="stat-value">-</span></div>
+      </section>
+
+      <section class="board-wrap">
+        <canvas id="board"></canvas>
+      </section>
+
+      <p id="message" class="message" data-kind="info" aria-live="polite"></p>
+
+      <section class="controls">
+        <button id="retry" class="btn" type="button">やりなおし</button>
+        <button id="new" class="btn btn-primary" type="button">新しい盤面</button>
+        <button id="playHome" class="btn btn-ghost" type="button">ホームへ</button>
+      </section>
+
+      <form id="seedForm" class="seed-row" hidden>
+        <input id="seedInput" class="seed-input" type="text" inputmode="text" placeholder="seed を指定（任意）" aria-label="seedを指定" />
+        <button class="btn" type="submit">このseedで出題</button>
+        <span id="seed" class="seed-current"></span>
+      </form>
+
+      <footer class="howto">
+        <p>箱をドラッグすると壁・他の箱・盤端に当たるまで滑ります。同じ色と記号の搬出口からすべて出してください。</p>
+      </footer>
+    </section>
+
+    <section id="screenRules" class="screen screen-card" data-screen="rules" hidden>
+      <h2>遊び方</h2>
+      <ol class="rules-list">
+        <li>箱を上下左右へドラッグすると、止まる場所まで一気に滑ります。</li>
+        <li>箱と同じ色・記号の搬出口から盤外へ出します。</li>
+        <li>すべての箱を出せばクリアです。出す順番を考えてください。</li>
+      </ol>
+      <p class="small-note">出荷レーンと出荷シャッターは後続Phaseで追加します。</p>
+      <button id="rulesBack" class="btn btn-wide" type="button">ホームへ戻る</button>
+    </section>
+
+    <section id="screenRanking" class="screen screen-card" data-screen="ranking" hidden>
+      <div class="ranking-head">
+        <h2>端末内記録</h2>
+        <button id="clearRanking" class="btn btn-ghost" type="button">記録を消去</button>
+      </div>
+      <p class="small-note">現在はエンドレスの端末内記録だけを表示します。公式ランキングは未接続です。</p>
+      <ol id="ranking" class="ranking"></ol>
+      <button id="rankingBack" class="btn btn-wide" type="button">ホームへ戻る</button>
+    </section>
   </main>
 
   <script type="module" src="src/main.js"></script>
