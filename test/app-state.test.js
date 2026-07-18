@@ -11,6 +11,7 @@ test('v2の全画面状態を識別できる', () => {
 test('許可された画面遷移だけを受け付ける', () => {
   assert.equal(canTransition(APP_STATES.HOME, APP_STATES.NAME_CONFIRM), true);
   assert.equal(canTransition(APP_STATES.HOME, APP_STATES.PLAYING), false);
+  assert.equal(canTransition(APP_STATES.PLAYING, APP_STATES.COUNTDOWN), true);
   assert.equal(canTransition(APP_STATES.PLAYING, APP_STATES.RESULT), true);
   assert.deepEqual(allowedTransitionsFrom(APP_STATES.RULES), [APP_STATES.HOME]);
 });
