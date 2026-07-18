@@ -42,7 +42,7 @@ button, .btn { -webkit-tap-highlight-color: transparent; }
   width: min(100%, 460px);
   min-height: 100dvh;
   margin: 0 auto;
-  padding: 10px 12px calc(24px + env(safe-area-inset-bottom));
+  padding: 10px 12px 24px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -161,7 +161,56 @@ button, .btn { -webkit-tap-highlight-color: transparent; }
 }
 .form-error { min-height: 20px; margin: 0; color: var(--danger); font-size: 12px; }
 .button-row { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; }
-.countdown-placeholder { color: var(--muted); font-weight: 700; }
+
+.countdown-screen {
+  min-height: min(420px, 62dvh);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(76,194,255,0.12), transparent 42%),
+    var(--panel);
+}
+.countdown-panel {
+  width: min(100%, 320px);
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+.countdown-mode {
+  min-height: 22px;
+  margin: 0;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.countdown-value {
+  min-width: 4ch;
+  margin: 4px 0;
+  color: var(--text);
+  font-size: clamp(68px, 26vw, 104px);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  text-shadow: 0 0 28px rgba(76,194,255,0.28);
+  animation: countdown-pop 180ms ease-out;
+}
+.countdown-value[data-step="start"] {
+  color: var(--accent-2);
+  font-size: clamp(42px, 15vw, 62px);
+  letter-spacing: 0.06em;
+}
+.countdown-hint {
+  min-height: 42px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+@keyframes countdown-pop {
+  from { opacity: 0.2; transform: scale(0.76); }
+  to { opacity: 1; transform: scale(1); }
+}
 
 .btn {
   min-height: 44px;
@@ -206,12 +255,14 @@ button, .btn { -webkit-tap-highlight-color: transparent; }
 .stat-value { display: block; overflow-wrap: anywhere; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
 
 .board-wrap {
+  position: relative;
   width: 100%;
   padding: 6px;
   border-radius: var(--radius);
   background: var(--panel);
   display: flex;
   justify-content: center;
+  overflow: hidden;
 }
 #board {
   display: block;
@@ -220,6 +271,26 @@ button, .btn { -webkit-tap-highlight-color: transparent; }
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
+}
+.start-flash {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(11,14,19,0.26);
+  color: var(--accent-2);
+  font-size: clamp(42px, 15vw, 64px);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-shadow: 0 0 28px rgba(52,211,153,0.5);
+  pointer-events: none;
+  animation: start-flash 450ms ease-out both;
+}
+@keyframes start-flash {
+  0% { opacity: 0; transform: scale(0.78); }
+  20% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.08); }
 }
 
 .message {
@@ -288,6 +359,7 @@ button, .btn { -webkit-tap-highlight-color: transparent; }
   .home-actions { grid-template-columns: 1fr; }
   .stat-value { font-size: 14px; }
   .title { font-size: 20px; }
+  .countdown-screen { min-height: 360px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
