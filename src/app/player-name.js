@@ -34,7 +34,11 @@ class MemoryStorage {
 }
 
 function defaultStorage() {
-  if (typeof localStorage !== 'undefined') return localStorage;
+  try {
+    if (typeof localStorage !== 'undefined') return localStorage;
+  } catch (_) {
+    // プライベートモードや制限付き環境ではメモリ保存へ退避する。
+  }
   return new MemoryStorage();
 }
 
