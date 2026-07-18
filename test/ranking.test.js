@@ -13,6 +13,12 @@ const score = (overrides = {}) => ({
   ...overrides,
 });
 
+class ThrowingStorage {
+  getItem() { throw new Error('blocked'); }
+  setItem() { throw new Error('blocked'); }
+  removeItem() { throw new Error('blocked'); }
+}
+
 test('v2保存キーを使い、モード・操作数・移動距離を保存する', async () => {
   const storage = new MemoryStorage();
   const ranking = new LocalRankingService(storage);
@@ -59,6 +65,13 @@ test('壊れた保存値でゲームを止めない', async () => {
   assert.deepEqual(await ranking.listScores(), []);
 });
 
+test('保存領域を読み取れず消去できなくてもゲームを止めない', async () => {
+  const ranking = new LocalRankingService(new ThrowingStorage());
+  assert.deepEqual(await ranking.listScores(), []);
+  assert.equal(await ranking.clearScores(), false);
+  await assert.rejects(() => ranking.saveScore(score()), /blocked/);
+});
+
 test('モード、難易度、seed、limitでフィルタでき、clearできる', async () => {
   const ranking = new LocalRankingService(new MemoryStorage());
   await ranking.saveScore(score({ seed: 'a', difficulty: 'normal', mode: 'endless' }));
@@ -66,6 +79,6 @@ test('モード、難易度、seed、limitでフィルタでき、clearできる
   await ranking.saveScore(score({ seed: 'c', difficulty: 'normal', mode: 'practice' }));
   assert.equal((await ranking.listScores({ mode: 'endless', difficulty: 'normal', seed: 'a', limit: 1 })).length, 1);
   assert.equal((await ranking.listScores({ mode: 'practice' })).length, 1);
-  await ranking.clearScores();
+  assert.equal(await ranking.clearScores(), true);
   assert.equal((await ranking.listScores()).length, 0);
 });
