@@ -27,3 +27,10 @@ test('ホームの共通導線を持つ', () => {
     assert.match(html, new RegExp(`id=["']${id}["']`));
   }
 });
+
+test('main.jsが取得する全IDをindex.htmlが持つ', () => {
+  const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  const ids = [...main.matchAll(/getElementById\(['"]([^'"]+)['"]\)/g)].map((match) => match[1]);
+  assert.ok(ids.length > 0);
+  for (const id of new Set(ids)) assert.match(html, new RegExp(`id=["']${id}["']`), `missing #${id}`);
+});
