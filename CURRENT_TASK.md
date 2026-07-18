@@ -1,42 +1,76 @@
-# CURRENT_TASK: HAKODASE Phase 1 現行コードの正しさ
+# CURRENT_TASK: G-01 Git基準整理
 
 ## 目的
-旧MVPの中核コードをHAKODASE v2 Phase 1契約へ合わせ、操作数・移動距離・競技時計・入力中断・経過時間型アニメーション・最短操作ソルバー・undo履歴の土台を実装する。
 
-## 基準ブランチとコミット
-- 基準ブランチ: `work`（リモート未設定のためローカルHEADを採用）
-- 基準コミット: `825779445558eb1228bf44c13b70abdd7db5d901`
-- 作業ブランチ: `codex/hakodase-phase1-correctness`
+HAKODASE v2の正式な統合・リリース基準を`main`へ一本化し、以後のPull Requestが古い作業ブランチを基準にしない状態を作る。
+
+## 開始時の確認
+
+- GitHub既定ブランチ表示: `claude/hakodase-puzzle-mvp-82p4qs`
+- 最新統合コミット: `c031eb089b9291880ff2e958e38c3f1e9a79de48`
+- 開始時の`main`: `4ea756d848bcb8b137c9491a381eeecae1c17bc8`
+- `main`は最新統合地点より6コミット遅れていた。
+- 最新統合地点は`main`の直系履歴上にあり、fast-forward可能だった。
+
+## 実施内容
+
+- `main`を履歴を書き換えず、`c031eb089b9291880ff2e958e38c3f1e9a79de48`へfast-forwardした。
+- 正式な統合・リリース基準を`main`と定めた。
+- 今後のPull Requestはbaseを明示的に`main`とする。
+- Git基準、Pull Request、保護、リリース、ロールバック方針を`docs/GIT_BRANCH_POLICY_v2.md`へ記録した。
+- 各工程の現在状態を`docs/COMPLETION_STATUS_v2.md`へ分離した。
+- `DECISION_LOG.md`と`CLAUDE.md`へ基準ブランチ方針を反映する。
+
+## 作業ブランチ
+
+```text
+agent/hakodase-git-baseline-v2
+```
+
+このブランチは最新の`main`から作成した。
 
 ## 対象
-- `src/core/` の指標、時計、undo、ソルバー、旧MVP生成メタデータ
-- Pointer Eventsの中断処理
-- Canvas表示の出口記号、経過時間型アニメーション、入力ロック
-- HUD表示とローカルランキングv2保存キー
-- Phase 1に対応するNode標準テスト
+
+- Git基準とブランチ方針
+- 現在作業の更新
+- 完成状況の更新方法
+- 今後のPull Request base
+- リリース線とロールバック方法
 
 ## 対象外
-ホーム画面、名前入力、3・2・1カウントダウン、正式な結果画面、3モード分離、公式日替わり問題、盤面生成第2世代、箱8〜14個、同色複数箱、Supabase、SQL、オンラインランキング、出荷レーン/シャッター生成、Three.js/WebGL、Web Worker、TypeScript化、新依存は実装しない。
 
-## 変更ファイル
-- `src/core/engine.js`, `src/core/solver.js`, `src/core/generator.js`
-- `src/input/pointer-input.js`
-- `src/render/animation.js`, `src/render/canvas-renderer.js`
-- `src/main.js`, `src/ui/hud.js`, `src/services/ranking.js`
-- `test/engine.test.js`, `test/solver.test.js`, `test/generator.test.js`, `test/ranking.test.js`, `test/input.test.js`, `test/hud.test.js`, `test/animation.test.js`
-- `README.md`, `docs/requirements.md`, `docs/implementation-plan.md`, `docs/architecture.md`, `docs/REVIEW_CHECKLIST_v2.md`, `DECISION_LOG.md`, `CURRENT_TASK.md`
+- P2-01のアプリ状態機械
+- ゲームコードと画面
+- Supabase、SQL、Codeberg Pages
+- GitHub既定ブランチ設定の変更
+- GitHubブランチ保護設定の変更
+- 過去の作業ブランチ削除
 
-## 検証
-- `npm test`: 59件合格
-- `git diff --check`: 合格
-- 静的検索で旧用語・互換箇所を確認
-- ブラウザ実機確認: 未実施
+## 確認できていない設定
 
-## 残課題
-- 現行旧MVP生成の `optimalSwipes` は箱数程度で、v2公式条件の20操作以上ではない。
-- Phase 2でホーム/モード/3・2・1/正式結果/undoボタンを実装する。
-- Phase 3で検証済み問題集と盤面生成第2世代を実装する。
-- Phase 4以降でSupabaseの問題ID対応を確認する。
+GitHub連携から、次のリポジトリ設定は変更・確認できていない。
 
-## Phase 2へ引き継ぐ内容
-現行画面では盤面描画後に `engine.start(performance.now())` 相当を呼ぶ暫定開始にしている。Phase 2ではGO表示と同じ開始処理へ置き換える。
+- 既定ブランチを`main`へ変更したこと
+- `main`のブランチ保護設定
+
+設定確認前も、すべてのPull Requestでbaseを明示的に`main`へ指定する。
+
+## 完了条件
+
+- [x] `main`が最新統合コミットと一致する。
+- [x] 正式な統合・リリース基準が`main`と文書化される。
+- [x] 今後のPull Request baseが`main`へ固定される。
+- [x] リリース線とロールバック方法が文書化される。
+- [x] 状態更新用文書が追加される。
+- [ ] GitHub既定ブランチ設定が`main`であることを設定画面で確認する。
+- [ ] `main`の保護設定を設定画面で確認する。
+
+## 次に行う作業
+
+G-01文書の統合後、最新の`main`からP2-01専用ブランチを作る。
+
+```text
+P2-01: アプリ状態機械と1プレイ管理
+```
+
+P2-01では、画面状態、`playId`相当の世代識別、結果確定の一回性、古いタイマー・イベントの無効化を実装する。ホーム画面全体、名前、カウントダウン表示、正式結果画面は後続Pull Requestへ分ける。
