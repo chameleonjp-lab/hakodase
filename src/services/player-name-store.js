@@ -5,7 +5,10 @@ import { validatePlayerName } from '../app/player-name.js';
 export const PLAYER_NAME_STORAGE_KEY = 'hakodase.playerName.v1';
 
 class MemoryStorage {
-  constructor() { this._values = new Map(); }
+  constructor() {
+    this.persistent = false;
+    this._values = new Map();
+  }
   getItem(key) { return this._values.has(key) ? this._values.get(key) : null; }
   setItem(key, value) { this._values.set(key, String(value)); }
   removeItem(key) { this._values.delete(key); }
@@ -23,6 +26,7 @@ function defaultStorage() {
 export class PlayerNameStore {
   constructor(storage = defaultStorage()) {
     this.storage = storage;
+    this.persistent = storage?.persistent !== false;
   }
 
   load() {
@@ -39,7 +43,13 @@ export class PlayerNameStore {
     if (!checked.valid) return Object.freeze({ accepted: false, persisted: false, ...checked });
     try {
       this.storage.setItem(PLAYER_NAME_STORAGE_KEY, checked.name);
-      return Object.freeze({ accepted: true, persisted: true, name: checked.name, length: checked.length, reason: null });
+      return Object.freeze({
+        accepted: true,
+        persisted: this.persistent,
+        name: checked.name,
+        length: checked.length,
+        reason: this.persistent ? null : 'storage-unavailable',
+      });
     } catch (_) {
       return Object.freeze({ accepted: true, persisted: false, name: checked.name, length: checked.length, reason: 'storage-unavailable' });
     }
@@ -48,7 +58,7 @@ export class PlayerNameStore {
   clear() {
     try {
       this.storage.removeItem(PLAYER_NAME_STORAGE_KEY);
-      return true;
+      return this.persistent;
     } catch (_) {
       return false;
     }
