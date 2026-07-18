@@ -1,5 +1,5 @@
 // HAKODASE v2 統合。P2-02ではホーム・名前確認・3モード選択をDOMへ接続する。
-// カウントダウンと正式なGO時計はP2-03で置き換えるため、現在は準備状態を同期的に通過する暫定接続。
+// カウントダウンと正式なSTART時計はP2-03で置き換えるため、現在は準備状態を同期的に通過する暫定接続。
 
 import { generateBoard } from './core/generator.js';
 import { GameEngine } from './core/engine.js';
@@ -7,6 +7,7 @@ import { CanvasRenderer } from './render/canvas-renderer.js';
 import { PointerInput } from './input/pointer-input.js';
 import { HUD } from './ui/hud.js';
 import { LocalRankingService } from './services/ranking.js';
+import { PlayerNameStore } from './services/player-name-store.js';
 import { PALETTE } from './core/palette.js';
 import { gateForBlock, gateOpeningCell } from './core/rules.js';
 import { approachPoint, pointReached, clampDt } from './render/animation.js';
@@ -16,7 +17,6 @@ import { RUN_STATUS, RunController } from './app/run-controller.js';
 import { GAME_MODES, getGameMode, isGameMode } from './app/modes.js';
 import {
   PLAYER_NAME_MAX_CHARACTERS,
-  PlayerNameStore,
   limitPlayerNameInput,
   validatePlayerName,
 } from './app/player-name.js';
