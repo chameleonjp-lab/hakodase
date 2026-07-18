@@ -1,111 +1,198 @@
-# v2契約への移行メモ
+# HAKODASE v2 アーキテクチャ
 
-この`アーキテクチャ`には旧MVP仕様が含まれる。HAKODASE v2の正本は次の文書である。旧MVP説明と矛盾する場合は、v2契約を優先し、後続Phaseで実装を合わせる。
+## 正本との関係
+
+この文書は実装構造を説明する。ゲーム仕様と品質条件は次を正本とする。
 
 - [GAME_CONTRACT_v2.md](GAME_CONTRACT_v2.md)
 - [SCORE_RANKING_CONTRACT_v2.md](SCORE_RANKING_CONTRACT_v2.md)
 - [MOBILE_TOUCH_CONTRACT_v2.md](MOBILE_TOUCH_CONTRACT_v2.md)
 - [PERFORMANCE_BUDGET_v2.md](PERFORMANCE_BUDGET_v2.md)
 - [EXPERIENCE_CONTRACT_v2.md](EXPERIENCE_CONTRACT_v2.md)
-- [ORIGINALITY_v2.md](ORIGINALITY_v2.md)
-- [REVIEW_CHECKLIST_v2.md](REVIEW_CHECKLIST_v2.md)
+- [P2_01_STATE_MACHINE_v2.md](P2_01_STATE_MACHINE_v2.md)
 
-主な差分: 旧MVPの「手数」は通過マス数だったが、v2では `swipeCount` と `distanceCells` を分ける。公式問題の最低20手は `optimalSwipes >= 20` を意味する。公式ランキングは同じ `puzzleId` の検証済み問題だけを比較する。Three.js/WebGL、Supabase、SQL、出荷レーン、出荷シャッターは今回実装しない。
+旧MVPの説明と矛盾する場合は、v2正本を優先する。
 
----
+## 設計原則
 
-# HAKODASE アーキテクチャ
-
-ゲームロジックと描画を分離し、将来 Three.js/WebGL を追加しやすくする設計。v2ではCanvas2Dを正式な基本版として残し、Three.js/WebGL化は別作業とする。
-中核は「スライド＆退場」モデル（Block Out! 系にインスパイアした独自実装）。
-
----
+1. ゲームルールはDOM、Canvas、通信へ依存させない。
+2. 画面状態と1プレイ状態を分ける。
+3. 非同期処理は画面世代または`playId`を確認してから作用させる。
+4. 描画は状態を受け取るだけで、ゲーム状態を書き換えない。
+5. ランキング保存をGameEngineへ直結させない。
+6. Canvas2Dを正式な基本版として残す。
 
 ## レイヤー構成
 
+```text
+AppController
+画面状態と許可遷移
+        │
+        ├── RunController
+        │   playId、開始、クリア、リタイア、無効化、結果の一回性
+        │
+        ├── GameEngine
+        │   盤面、箱位置、swipeCount、distanceCells、undo、クリア判定
+        │       ├── rules.js
+        │       ├── solver.js
+        │       ├── generator.js
+        │       └── rng.js
+        │
+        ├── PointerInput
+        │   画面座標から操作要求への変換
+        │
+        ├── Animation / Renderer
+        │   表示位置、入力ロック、Canvas2D描画、演出
+        │
+        ├── HUD / Screens
+        │   DOM表示。P2-02以降で状態ごとに接続
+        │
+        └── RankingService
+            localStorage。Phase 4でRemoteRankingService追加
 ```
-   入力   PointerInput            画面座標 → グリッド操作（ドラッグ方向）
-              │ tryMove(index, dir)
-   ロジック GameEngine            進行状態・手数（通過マス数）・退場・タイマー・クリア
-              │  ├ rules.js   (純粋: スライド計算 / 退場 / 壁 / 一方通行)
-              │  ├ generator.js (seed→盤面, 逆生成で常に可解)
-              │  │    └ solver.js (Dijkstra最短 / quickSolvable)
-              │  └ rng.js    (決定論乱数)
-              │ frameState（読み取り専用スナップショット）
-   描画    Renderer interface     init/resize/render/destroy/clientToCell
-              └ CanvasRenderer    （将来 ThreeRenderer に差し替え）
 
-   付帯: RankingService (localStorage / 将来オンライン), HUD (DOM)
+## 依存ルール
+
+### `src/app/`
+
+- DOM、Canvas、localStorage、Supabaseを参照しない。
+- `AppController`はGameEngineの内部を知らない。
+- `RunController`は結果データを保持できるが、ランキング送信を行わない。
+
+### `src/core/`
+
+- DOM、Canvasへ依存しない。
+- GameEngineとSolverは同じルール関数を使う。
+- `swipeCount`と`distanceCells`を混同しない。
+
+### `src/render/`
+
+- `frameState`を読み取る。
+- 論理位置を変更しない。
+- Canvas2D版を残し、将来のThreeRendererは同じゲーム状態を利用する。
+
+### `src/input/`
+
+- Pointer Eventsを操作要求へ変換する。
+- `pointercancel`と`lostpointercapture`では操作を確定しない。
+- 画面状態や結果保存を直接変更しない。
+
+### `src/services/`
+
+- 保存と通信を分離する。
+- 古い通信結果は`playId`確認後にUIへ反映する。
+
+## 画面状態
+
+P2-01で次を定義する。
+
+```text
+home
+nameConfirm
+countdown
+playing
+result
+rules
+ranking
 ```
 
-データの流れは常に一方向: **入力 → ロジック → frameState → 描画**。描画は状態を書き換えない。
+許可遷移は`src/app/app-state.js`を唯一の正しい表とする。
 
-## 依存ルール（必須）
+成功した遷移ごとに`AppController.version`を進める。画面タイマーや遅延処理は開始時のversionを保持し、完了時に現在世代か確認する。
 
-- **GameEngine / rules / generator / solver / rng は DOM・Canvas に一切依存しない。** Node だけで import・テストできる。
-- 描画は frameState を受け取って描くだけ。入力は画面座標→グリッド操作への変換役。
-- ランキング保存は RankingService として GameEngine から分離。
+## 1プレイ状態
 
-## ゲームロジック（スライド＆退場）
+P2-01で次を定義する。
 
-### 盤面モデル
-
-静的盤面 `board`（不変）:
-```js
-{ width, height,
-  walls: Set<"x,y">,
-  oneway: Map<"x,y", dir>,          // MVP の生成では未使用（ルールは実装済み）
-  gates: Array<{ side, line, color }>, // 縁の出口ゲート（同色のみ退場可）
-  blocks: Array<{ id, x, y, w, h, color }> }
+```text
+prepared
+playing
+cleared
+retired
+invalidated
 ```
-動的状態: `positions: Array<{x,y}|null>`（null=退場）, `moveCount`（通過マス数の総和）。
 
-### スライド（1 手）
+`RunController.prepare()`ごとに新しい`playId`を発行する。古い`playId`のイベントは現在プレイへ作用できない。
 
-- ドラッグ方向へ、壁・他ブロック・盤端に当たるまで 1 マスずつ連続移動（`computeSlide`）。
-- 盤端に達したとき、その縁に**同色ゲートがあれば退場**（`exit`）、無ければ停止。
-- 手数 = 通過マス数（退場の1歩を含む）。GameEngine と Solver は同じ `rules` を使い手数が一致。
+`cleared`、`retired`、`invalidated`は終端状態であり、一つのプレイを二重に確定しない。
 
-### 出口ゲート
+## GameEngine
 
-- `side/line/color` で縁を指定。`gateForExit(x,y,dir)` が横切るゲートを判定、`gateOpeningCell` が盤外開口を返す。
+GameEngineは次を管理する。
 
-### ランダム生成と 20 手保証（逆生成）
+```text
+positions
+swipeCount
+distanceCells
+undoCount
+status
+startedAt
+finalElapsedMs
+history
+```
 
-- 各ブロックを自分のゲートから盤内へ滑り込ませて配置 → その逆順が必ず成立する正解手順＝**常に可解**（探索不要）。
-- 一直線配置のため **最短手数 = 各ブロック→同色ゲート開口のマンハッタン距離総和**（厳密）。これを ≥22 にして「20手以上」を保証。
-- `quickSolvable`（同色ゲートへ真っ直ぐ出せる箱を貪欲に退場）で十分条件を再確認。
-- 最大試行回数で無限ループ禁止。失敗時は検証済みフォールバック（独立レーン）。
+- 1回の有効スライドで`swipeCount`を1増やす。
+- 通過したマス数を`distanceCells`へ加える。
+- 競技経過時間は外部から渡す単調時刻で測る。
+- undoは箱位置、操作数、距離を戻すが、経過時間を戻さない。
 
-### Solver
+## P2-01と現行画面の境界
 
-- スライドのコストが可変（通過マス数）なので **ダイクストラ**で最短手数を求める（小盤面の厳密値・テスト用）。ノード/コスト上限あり。
-- `quickSolvable` は探索なしの軽量可解判定（生成検証・テスト用）。
-- 注: 多ブロックの全探索は状態爆発するため、生成は探索ではなく**逆生成**で可解性を担保する（重要な設計判断）。
+P2-01では状態管理モジュールと単体テストを追加するが、現行`src/main.js`へ本接続しない。
 
-## 描画 / 入力 / サービス
+理由は、ホーム、名前、カウントダウン、プレイ、結果のDOMをまだ持たない状態で接続すると、一時的な遷移や例外処理が残り、後続作業で再び壊すためである。
 
-- CanvasRenderer: 角丸＋面取り＋影＋グラデ＋ハイライト＋リベット＋記号、縁の色付き出口ゲート、着地プレビュー、退場/クリアのパーティクル。DPR 対応、rAF、毎フレームのレイアウト発生を回避。
-- PointerInput: Pointer Events 統一、`touch-action:none`、pointer capture、ドラッグ方向→1スライド要求。
-- RankingService（抽象）→ LocalRankingService（localStorage, storage 注入可能）。将来 RemoteRankingService を同 interface で追加可能。HUD は DOM 更新のみ。
+接続は次の順で行う。
 
-## 推奨構成からの変更点・理由
+```text
+P2-02: home / nameConfirm / 3モード選択
+P2-03: countdown / GO / 公式時計 / visibility無効化
+P2-04: playing / undo / リタイア / 詰み
+P2-05: result / 再挑戦 / 共有 / 導線
+```
 
-- ファイル構成は推奨どおり。`rules.js` を独立させ engine と solver が同一の純粋ルールを共有（手数一致・二重実装回避）。
-- **中核を「同色ゴールに乗せる 1マス移動」から「壁まで滑って同色ゲートから退場」へ変更**（着想元に寄せる依頼による）。盤面サイズはタイムアタック向けに縦長 7×9。
-- **生成を探索（forward BFS）から逆生成へ変更**。多ブロックのスライド全探索は状態爆発で非現実的なため、構成で可解性と最短手数を担保する方式にした。
-- 一方通行床のルールは残置（テスト済み）だが、アンドゥの無いタイムアタックで詰みを生まないよう**生成では未使用**。可動ゲート（開閉シャッター）は中核がゲート＝出口になったため MVP では廃止し、将来の追加ギミック（エレベーター/生成器等）扱いとした。
+## 非同期処理の規則
 
-## 将来拡張
+- 画面に属する遅延処理は`AppController.version`を確認する。
+- プレイに属する処理は`RunController.playId`を確認する。
+- ランキング、共有、アニメーション完了、カウントダウンは古い世代なら結果を捨てる。
+- 結果確定はRunControllerが成功した場合だけ行う。
+- `destroy()`または購読解除でイベントを残さない。
 
-- ThreeRenderer 追加（render の中身だけ実装、interface 不変）。
-- 複数マスブロック（w/h を実描画・ルールに反映）。
-- アンドゥ＋一方通行/可動ギミックの生成導入。
-- RemoteRankingService（オンライン）。生成/探索の Web Worker 化（コアは純粋関数）。
+## 描画と入力
 
-## Phase 1 実装メモ（2026-07-12）
-- 現行画面はまだ旧MVP型だが、中核指標はv2契約に合わせて `swipeCount`（操作）と `distanceCells`（移動マス）へ分離した。
-- 旧MVPの距離条件は `shortestDistanceCells` として残し、v2公式難易度の `optimalSwipes >= 20` とは混同しない。現行ランダム盤面はPhase 3の検証済み公式問題ではない。
-- 競技経過時間は `GameEngine.start(now)` と単調時刻注入で扱う。現行画面ではPhase 2までの暫定として、初回描画フレーム内で開始する。
-- ローカルランキングは `hakodase.ranking.v2` を使い、旧v1距離記録を新操作記録へ混ぜない。
-- Supabase、SQL、Three.js/WebGL、出荷レーン、出荷シャッター、Phase 2画面状態は未実装。
+- PointerInputは選択、ドラッグ、確定、取消を通知する。
+- Animationは経過時間で表示位置を目標へ近づける。
+- CanvasRendererは角丸箱、影、グラデーション、記号、出口、パーティクルを描く。
+- アニメ中入力は表示完了までロックする。
+- 論理座標は整数セルで保持し、表示位置だけを補間する。
+
+## 盤面生成とソルバー
+
+Phase 1時点の生成は旧MVP型であり、公式条件`optimalSwipes >= 20`を満たさない。
+
+Phase 3で次を追加する。
+
+- 複数箱と同色複数箱
+- 盤面データv2
+- `puzzleId`、`rulesVersion`、`generatorVersion`、`boardHash`
+- 厳密な最短操作ソルバー
+- 1000件以上の候補検査
+- 検証済み公式問題集
+
+## Three.js / WebGL
+
+Three.jsはPhase 6より前の必須作業にしない。
+
+将来追加する場合も、次が必要である。
+
+- カメラと光源
+- 立体物の生成と再利用
+- ヒット判定
+- サイズ変更
+- 高解像度負荷制御
+- 資源破棄
+- WebGLコンテキスト消失と復帰
+- Canvas2Dへのフォールバック
+
+Renderer生成箇所を一行変えるだけで完成するとは扱わない。
