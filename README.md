@@ -97,12 +97,12 @@ npm test
 - Pointer Eventsの中断
 - 経過時間型アニメーション
 - 状態遷移と`playId`
-- プレイヤー名
+- プレイヤー名の規則と保存
 - 3モード
 - 端末内記録のモード分離
 - HTMLとJavaScriptの要素ID契約
 
-P2-02の対象テストは再現したローカル環境で合格していますが、リポジトリ全体の`npm test`、実ブラウザ、iPhone・iPad実機は未確認です。
+P2-02の対象テスト22件は再現したローカル環境で合格していますが、リポジトリ全体の`npm test`、実ブラウザ、iPhone・iPad実機は未確認です。
 
 ## 遊び方
 
@@ -141,6 +141,7 @@ src/
     canvas-renderer.js
     animation.js
   services/
+    player-name-store.js
     ranking.js
   ui/
     hud.js
