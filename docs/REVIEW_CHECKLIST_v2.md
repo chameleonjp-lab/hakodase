@@ -57,7 +57,6 @@
 - [ ] 推測SQLをリポジトリへ追加していない。
 - [ ] Three.js/WebGLを今回の実装対象として扱っていない。
 
-
 ## Phase 1 実装確認（2026-07-12）
 - [x] `swipeCount` と `distanceCells` を分離した。
 - [x] `GameEngine.start(now)` と単調時刻の経過時間計測を追加した。
@@ -68,3 +67,17 @@
 - [x] v2ローカルランキングキーへ分離した。
 - [ ] ブラウザ実機確認は未実施。
 - [ ] Phase 2画面、正式結果、undoボタンは未実装。
+
+## P2-01 実装確認（2026-07-18）
+- [x] `home`、`nameConfirm`、`countdown`、`playing`、`result`、`rules`、`ranking`を定義した。
+- [x] 許可遷移と禁止遷移を純粋関数で判定できる。
+- [x] 成功した画面遷移だけで`version`が進む。
+- [x] `prepare()`ごとに単調増加する`playId`を発行する。
+- [x] 古い`playId`の開始、完了、リタイア、無効化を拒否する。
+- [x] クリア、リタイア、無効化を一度だけ確定する。
+- [x] 古い非同期処理を`runIfCurrent()`で拒否できる。
+- [x] 状態管理モジュールがDOM、Canvas、Supabaseへ依存しない。
+- [x] AppControllerとRunControllerの単体テストを追加した。
+- [ ] 既存59件と追加テストを合わせた`npm test`は未確認。
+- [ ] 現行画面への本接続は未実施。
+- [ ] ブラウザ・実機確認は未実施。
