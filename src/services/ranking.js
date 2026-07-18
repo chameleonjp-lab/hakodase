@@ -33,10 +33,19 @@ function byRank(a, b) {
   return String(a.clearedAt || '').localeCompare(String(b.clearedAt || ''));
 }
 
+function defaultStorage() {
+  try {
+    if (typeof localStorage !== 'undefined') return localStorage;
+  } catch (_) {
+    // 保存機能が制限されたブラウザではメモリ保存へ退避する。
+  }
+  return new MemoryStorage();
+}
+
 export class LocalRankingService extends RankingService {
-  constructor(storage) {
+  constructor(storage = defaultStorage()) {
     super();
-    this.storage = storage || (typeof localStorage !== 'undefined' ? localStorage : new MemoryStorage());
+    this.storage = storage;
   }
 
   _read() {
@@ -76,7 +85,12 @@ export class LocalRankingService extends RankingService {
   }
 
   async clearScores() {
-    this.storage.removeItem(STORAGE_KEY);
+    try {
+      this.storage.removeItem(STORAGE_KEY);
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 }
 
