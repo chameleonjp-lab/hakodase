@@ -15,6 +15,7 @@ const DEFINITIONS = Object.freeze({
     difficulty: 'normal',
     previewSeed: 'daily-preview-v1',
     official: true,
+    strictClock: true,
     rankingEnabled: false,
   }),
   [GAME_MODES.ENDLESS]: Object.freeze({
@@ -25,6 +26,7 @@ const DEFINITIONS = Object.freeze({
     difficulty: 'normal',
     previewSeed: null,
     official: false,
+    strictClock: false,
     rankingEnabled: true,
   }),
   [GAME_MODES.PRACTICE]: Object.freeze({
@@ -35,6 +37,7 @@ const DEFINITIONS = Object.freeze({
     difficulty: 'practice',
     previewSeed: 'practice-preview-v1',
     official: false,
+    strictClock: false,
     rankingEnabled: false,
   }),
 });
