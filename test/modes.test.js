@@ -16,3 +16,9 @@ test('モード定義を外部から変更できない', () => {
   assert.equal(Object.isFrozen(daily), true);
   assert.throws(() => { daily.label = '変更'; }, TypeError);
 });
+
+test('本日の出荷だけが厳格時計を使う', () => {
+  assert.equal(getGameMode(GAME_MODES.DAILY).strictClock, true);
+  assert.equal(getGameMode(GAME_MODES.ENDLESS).strictClock, false);
+  assert.equal(getGameMode(GAME_MODES.PRACTICE).strictClock, false);
+});
