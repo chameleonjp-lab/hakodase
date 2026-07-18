@@ -13,8 +13,25 @@
 - `docs/EXPERIENCE_CONTRACT_v2.md`
 - `docs/ORIGINALITY_v2.md`
 - `docs/REVIEW_CHECKLIST_v2.md`
+- `docs/COMPLETION_PLAN_v2.md`
+- `docs/COMPLETION_STATUS_v2.md`
+- `docs/GIT_BRANCH_POLICY_v2.md`
 
 重要な変更点: 旧MVPの「手数」は通過マス数だったが、v2では `swipeCount` と `distanceCells` を分ける。公式問題の最低20手は `optimalSwipes >= 20` を意味する。公式ランキングは同じ `puzzleId` の検証済み問題だけを比較する。Supabaseの問題ID対応は未確認なので推測SQLを作らない。
+
+## Git基準
+
+- 正式な統合・リリース基準は`main`。
+- 作業開始前に`main`の先端と`docs/COMPLETION_STATUS_v2.md`を確認する。
+- GitHubの既定ブランチ表示が別名でも、それを自動的に正式基準とは扱わない。
+- 作業ブランチは毎回最新の`main`から作る。
+- Pull Requestのbaseは明示的に`main`とする。
+- 前の作業ブランチを次の作業の基準にしない。
+- 1つのPull Requestで達成する目的を1つに絞る。
+- 原則としてDraft Pull Requestを作り、ユーザーの明示確認前にDraft解除、マージ、自動マージを行わない。
+- `main`へ直接コミットまたは直接pushしない。
+- 正式リリースタグと公開版は`main`上の検証済みコミットから作る。
+- ロールバックはforce pushではなく、revert用Pull Requestを基本とする。
 
 ## プロジェクト概要
 
@@ -70,3 +87,5 @@
 
 - 仕様変更時は `docs/requirements.md` / `docs/implementation-plan.md` / `docs/architecture.md` を更新する。
 - 構成を変えたら理由を `docs/architecture.md` に書く。
+- 工程の状態が変わったら`docs/COMPLETION_STATUS_v2.md`を更新する。
+- Git運用を変える場合は`docs/GIT_BRANCH_POLICY_v2.md`と`DECISION_LOG.md`を先に更新する。
