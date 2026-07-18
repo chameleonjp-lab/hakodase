@@ -61,6 +61,22 @@ test('保存領域が使えなくても有効名で開始できる', () => {
   assert.equal(store.clear(), false);
 });
 
+test('メモリ退避は永続保存済みと報告しない', () => {
+  const previous = globalThis.localStorage;
+  try {
+    delete globalThis.localStorage;
+    const store = new PlayerNameStore();
+    const saved = store.save('出荷係');
+    assert.equal(saved.accepted, true);
+    assert.equal(saved.persisted, false);
+    assert.equal(saved.reason, 'storage-unavailable');
+    assert.equal(store.load(), '出荷係');
+    assert.equal(store.clear(), false);
+  } finally {
+    if (previous !== undefined) globalThis.localStorage = previous;
+  }
+});
+
 test('保存済み不正値を再利用しない', () => {
   const storage = new FakeStorage();
   storage.value = 'x'.repeat(21);
