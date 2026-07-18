@@ -1,0 +1,11 @@
+HAKODASE G-01 validation
+Date: 2026-07-18
+Canonical base: main
+Baseline commit before this branch: c031eb089b9291880ff2e958e38c3f1e9a79de48
+Main synchronized by fast-forward: yes
+Work branch created from main: agent/hakodase-git-baseline-v2
+Code changes: none
+Test execution: not required for documentation-only branch; Phase 1 baseline remains 59 passing tests from PR #2
+Browser/device verification: not performed
+Repository default branch setting: still requires settings-page confirmation
+Branch protection setting: still requires settings-page confirmation
