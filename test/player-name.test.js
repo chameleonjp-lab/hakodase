@@ -2,12 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   PLAYER_NAME_MAX_CHARACTERS,
-  PLAYER_NAME_STORAGE_KEY,
-  PlayerNameStore,
   limitPlayerNameInput,
   normalizePlayerName,
   validatePlayerName,
 } from '../src/app/player-name.js';
+import { PLAYER_NAME_STORAGE_KEY, PlayerNameStore } from '../src/services/player-name-store.js';
 
 class FakeStorage {
   constructor() { this.value = null; }
