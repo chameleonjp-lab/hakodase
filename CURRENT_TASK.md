@@ -1,76 +1,109 @@
-# CURRENT_TASK: G-01 Git基準整理
+# CURRENT_TASK: P2-01 アプリ状態機械と1プレイ管理
 
 ## 目的
 
-HAKODASE v2の正式な統合・リリース基準を`main`へ一本化し、以後のPull Requestが古い作業ブランチを基準にしない状態を作る。
+画面状態と1プレイの状態遷移を純粋なモジュールへ分離し、不正な画面遷移、二重結果、古いタイマー・Promise・イベントの混入を防ぐ基礎を作る。
 
-## 開始時の確認
+## 基準
 
-- GitHub既定ブランチ表示: `claude/hakodase-puzzle-mvp-82p4qs`
-- 最新統合コミット: `c031eb089b9291880ff2e958e38c3f1e9a79de48`
-- 開始時の`main`: `4ea756d848bcb8b137c9491a381eeecae1c17bc8`
-- `main`は最新統合地点より6コミット遅れていた。
-- 最新統合地点は`main`の直系履歴上にあり、fast-forward可能だった。
+- 正式な基準ブランチ: `main`
+- 基準コミット: Pull Request #4統合後の最新`main`
+- 作業ブランチ: `agent/hakodase-p2-01-state-machine`
+- Pull Request base: `main`
 
-## 実施内容
-
-- `main`を履歴を書き換えず、`c031eb089b9291880ff2e958e38c3f1e9a79de48`へfast-forwardした。
-- 正式な統合・リリース基準を`main`と定めた。
-- 今後のPull Requestはbaseを明示的に`main`とする。
-- Git基準、Pull Request、保護、リリース、ロールバック方針を`docs/GIT_BRANCH_POLICY_v2.md`へ記録した。
-- 各工程の現在状態を`docs/COMPLETION_STATUS_v2.md`へ分離した。
-- `DECISION_LOG.md`と`CLAUDE.md`へ基準ブランチ方針を反映する。
-
-## 作業ブランチ
+## 今回の一目的
 
 ```text
-agent/hakodase-git-baseline-v2
+AppControllerとRunControllerを追加し、画面状態とplayId世代管理をNode標準テストで検証できるようにする。
 ```
 
-このブランチは最新の`main`から作成した。
+## 実装対象
 
-## 対象
+### 新規コード
 
-- Git基準とブランチ方針
-- 現在作業の更新
-- 完成状況の更新方法
-- 今後のPull Request base
-- リリース線とロールバック方法
+```text
+src/app/app-state.js
+src/app/app-controller.js
+src/app/run-controller.js
+```
+
+### 新規テスト
+
+```text
+test/app-state.test.js
+test/run-controller.test.js
+```
+
+### 文書
+
+```text
+docs/P2_01_STATE_MACHINE_v2.md
+CURRENT_TASK.md
+DECISION_LOG.md
+docs/COMPLETION_STATUS_v2.md
+docs/REVIEW_CHECKLIST_v2.md
+docs/architecture.md
+```
+
+## 実装内容
+
+### AppController
+
+- `home`、`nameConfirm`、`countdown`、`playing`、`result`、`rules`、`ranking`を定義する。
+- 許可された遷移だけを受け付ける。
+- 成功した遷移ごとに`version`を進める。
+- 古い画面世代を`isCurrent(version)`で識別できる。
+- 購読解除と`destroy()`でイベントを残さない。
+
+### RunController
+
+- `prepare()`ごとに単調増加する`playId`を発行する。
+- `prepared`、`playing`、`cleared`、`retired`、`invalidated`を管理する。
+- 古い`playId`による開始、完了、リタイア、無効化を拒否する。
+- 一つのプレイの結果を一度だけ確定する。
+- `runIfCurrent()`で古い非同期処理を現在のプレイへ作用させない。
+- 外部へ返す設定と結果を複製し、外部変更で内部状態を壊さない。
 
 ## 対象外
 
-- P2-01のアプリ状態機械
-- ゲームコードと画面
-- Supabase、SQL、Codeberg Pages
-- GitHub既定ブランチ設定の変更
-- GitHubブランチ保護設定の変更
-- 過去の作業ブランチ削除
+- 現行`src/main.js`への本接続
+- ホーム画面と名前入力
+- カウントダウン表示
+- undo・リタイアの画面ボタン
+- 正式結果画面
+- Supabase、SQL、オンラインランキング
+- 盤面生成第2世代
+- 出荷レーン、出荷シャッター
+- Three.js/WebGL
 
-## 確認できていない設定
+本接続はP2-02〜P2-05で、画面単位に行う。
 
-GitHub連携から、次のリポジトリ設定は変更・確認できていない。
+## 検証
 
-- 既定ブランチを`main`へ変更したこと
-- `main`のブランチ保護設定
-
-設定確認前も、すべてのPull Requestでbaseを明示的に`main`へ指定する。
+- 追加モジュールを再現したローカル環境でNodeの基本動作を確認済み。
+- GitHub公開URLへ接続できない環境のため、リポジトリ全体の`npm test`は未実施。
+- 既存59件と追加テストは、Pull RequestのCIまたは別の実行環境で一括確認が必要。
+- ブラウザ・実機確認は未実施。
 
 ## 完了条件
 
-- [x] `main`が最新統合コミットと一致する。
-- [x] 正式な統合・リリース基準が`main`と文書化される。
-- [x] 今後のPull Request baseが`main`へ固定される。
-- [x] リリース線とロールバック方法が文書化される。
-- [x] 状態更新用文書が追加される。
-- [ ] GitHub既定ブランチ設定が`main`であることを設定画面で確認する。
-- [ ] `main`の保護設定を設定画面で確認する。
+- [x] 全画面状態と許可遷移を純粋関数で定義する。
+- [x] AppControllerが禁止遷移と古い画面世代を拒否できる。
+- [x] RunControllerがplayIdを発行し、古いプレイを拒否できる。
+- [x] クリア、リタイア、無効化を一度だけ確定できる。
+- [x] 古い非同期処理を現在プレイへ作用させないAPIがある。
+- [x] 新規モジュールがDOM、Canvas、Supabaseへ依存しない。
+- [x] 新規単体テストを追加する。
+- [ ] リポジトリ全体の`npm test`が合格する。
+- [ ] `git diff --check`相当の差分確認が合格する。
+- [ ] Pull Requestレビューで仕様との一致を確認する。
 
 ## 次に行う作業
 
-G-01文書の統合後、最新の`main`からP2-01専用ブランチを作る。
+P2-01統合後、最新`main`から次を開始する。
 
 ```text
-P2-01: アプリ状態機械と1プレイ管理
+P2-02: ホーム・名前確認・3モード選択
 ```
 
-P2-01では、画面状態、`playId`相当の世代識別、結果確定の一回性、古いタイマー・イベントの無効化を実装する。ホーム画面全体、名前、カウントダウン表示、正式結果画面は後続Pull Requestへ分ける。
+P2-02でAppControllerを実際のDOM画面へ接続し、名前確認からプレイ準備までを実装する。カウントダウンと正式時計の接続はP2-03へ分ける。
