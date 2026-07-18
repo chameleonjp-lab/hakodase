@@ -1,26 +1,26 @@
 # HAKODASE v2 レビュー・チェックリスト
 
 ## Phase 1: 現行コードの正しさ
-- [ ] `swipeCount` と `distanceCells` が分離されている。
-- [ ] 競技タイマーが `performance.now()` 基準になっている。
-- [ ] GOと同時に外部からタイマーを開始できる。
-- [ ] `pointercancel` と `lostpointercapture` で操作を破棄する。
+- [ ] `swipeCount`と`distanceCells`が分離されている。
+- [ ] 競技タイマーが`performance.now()`基準になっている。
+- [ ] STARTと同時に外部からタイマーを開始できる。
+- [ ] `pointercancel`と`lostpointercapture`で操作を破棄する。
 - [ ] アニメ中入力制御がある。
 - [ ] アニメが経過時間型である。
 - [ ] 箱と出口の記号が対応している。
-- [ ] ソルバーが `optimalSwipes` を扱える。
+- [ ] ソルバーが`optimalSwipes`を扱える。
 - [ ] 戻す履歴の土台がある。
 
 ## Phase 2: 画面遷移とモード
-- [ ] `home`、`nameConfirm`、`countdown`、`playing`、`result` がある。
-- [ ] `rules`、`ranking` が補助状態として扱われる。
+- [ ] `home`、`nameConfirm`、`countdown`、`playing`、`result`がある。
+- [ ] `rules`、`ranking`が補助状態として扱われる。
 - [ ] 練習、本日の出荷、エンドレスが混ざらない。
 - [ ] シェアと実験場導線がある。
 
 ## Phase 3: 盤面生成第2世代
 - [ ] 複数箱、複数同色箱に対応する。
-- [ ] `optimalSwipes` 20〜35の検証済み問題集がある。
-- [ ] `puzzleId`、`rulesVersion`、`generatorVersion`、`boardHash` がある。
+- [ ] `optimalSwipes`20〜35の検証済み問題集がある。
+- [ ] `puzzleId`、`rulesVersion`、`generatorVersion`、`boardHash`がある。
 - [ ] 1000件以上の候補検査を行う。
 
 ## Phase 4: Supabase
@@ -34,7 +34,7 @@
 
 ## Phase 5: 独自ギミック
 - [ ] 出荷レーンが矢印方向だけ通す。
-- [ ] 出荷シャッターが `swipeCount` で開閉する。
+- [ ] 出荷シャッターが`swipeCount`で開閉する。
 - [ ] 次状態表示がある。
 - [ ] チュートリアルで説明される。
 - [ ] ソルバーと生成へ反映されている。
@@ -45,7 +45,7 @@
 - [ ] 性能測定に合格する。
 - [ ] Codeberg Pages公開手順が確認済みである。
 - [ ] 実験場トップと詳細ランキングの導線が確認済みである。
-- [ ] Supabase `public.games` の設定が確認済みである。
+- [ ] Supabase `public.games`の設定が確認済みである。
 - [ ] シェア文言が確認済みである。
 - [ ] 公開版をタグ、ZIP名、`CLIENT_VERSION`、`rulesVersion`、`generatorVersion`で識別できる。
 
@@ -58,11 +58,11 @@
 - [ ] Three.js/WebGLを今回の実装対象として扱っていない。
 
 ## Phase 1 実装確認（2026-07-12）
-- [x] `swipeCount` と `distanceCells` を分離した。
-- [x] `GameEngine.start(now)` と単調時刻の経過時間計測を追加した。
-- [x] `pointercancel` / `lostpointercapture` は操作を確定しない。
+- [x] `swipeCount`と`distanceCells`を分離した。
+- [x] `GameEngine.start(now)`と単調時刻の経過時間計測を追加した。
+- [x] `pointercancel` / `lostpointercapture`は操作を確定しない。
 - [x] アニメーション計算を経過時間型へ変更した。
-- [x] `solveOptimalSwipes()` を追加し、`solve()` を最短操作数へ合わせた。
+- [x] `solveOptimalSwipes()`を追加し、`solve()`を最短操作数へ合わせた。
 - [x] undo履歴のコアAPIを追加した。
 - [x] v2ローカルランキングキーへ分離した。
 - [ ] ブラウザ実機確認は未実施。
@@ -78,6 +78,29 @@
 - [x] 古い非同期処理を`runIfCurrent()`で拒否できる。
 - [x] 状態管理モジュールがDOM、Canvas、Supabaseへ依存しない。
 - [x] AppControllerとRunControllerの単体テストを追加した。
+- [x] P2-02でAppControllerを現行DOMへ接続した。
 - [ ] 既存59件と追加テストを合わせた`npm test`は未確認。
-- [ ] 現行画面への本接続は未実施。
 - [ ] ブラウザ・実機確認は未実施。
+
+## P2-02 実装確認（2026-07-18）
+- [x] ホームから名前確認へ進む。
+- [x] ホームへ本日の出荷、エンドレス、練習を表示する。
+- [x] 選択モードを`RunController.prepare()`へ渡す。
+- [x] 保存済み名前を開始前に再利用する。
+- [x] 空文字と空白だけの名前を拒否する。
+- [x] 前後空白を除き、最大20文字とする。
+- [x] 絵文字と記号を許可する。
+- [x] 名前確定後に入力欄を`blur()`する。
+- [x] 保存領域が使えなくても有効名でプレイ準備できる。
+- [x] 再挑戦と新規盤面で新しい`playId`を発行する。
+- [x] 本日の出荷プレビューと練習を記録対象外とする。
+- [x] エンドレスだけを端末内記録へ保存・表示する。
+- [x] モード情報がない旧v2記録をエンドレスへ混ぜない。
+- [x] 遊び方、シェア、実験場、端末内記録の導線を追加した。
+- [x] モード、名前、HTML契約、記録分離の対象テストを追加した。
+- [ ] リポジトリ全体の`npm test`は未確認。
+- [ ] 実ブラウザで画面遷移を確認していない。
+- [ ] 320px幅とソフトウェアキーボード表示を確認していない。
+- [ ] iPhone、iPad実機は未確認。
+- [ ] 3・2・1・STARTはP2-03で実装する。
+- [ ] 正式結果画面はP2-05で実装する。
