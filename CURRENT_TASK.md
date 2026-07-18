@@ -24,7 +24,10 @@
 ```text
 src/app/modes.js
 src/app/player-name.js
+src/services/player-name-store.js
 ```
+
+名前の規則は`src/app/player-name.js`へ、端末保存は`src/services/player-name-store.js`へ分ける。
 
 ### 画面・統合
 
@@ -52,6 +55,8 @@ CURRENT_TASK.md
 DECISION_LOG.md
 docs/COMPLETION_STATUS_v2.md
 docs/REVIEW_CHECKLIST_v2.md
+docs/GAME_CONTRACT_v2.md
+docs/architecture.md
 README.md
 ```
 
@@ -72,6 +77,7 @@ README.md
 - 絵文字と記号を許可する。
 - 確定後に`blur()`する。
 - 端末内へ保存し、保存できない場合もプレイ自体は続けられる。
+- 名前の検査は保存機能へ依存させない。
 
 ### 3モード
 
@@ -92,10 +98,11 @@ README.md
 - 新規記録へ`mode`を保存する。
 - エンドレスだけ保存・表示する。
 - モード情報がない旧v2記録は`legacy`扱いとし、エンドレスへ混ぜない。
+- 保存領域の読み取りや消去が失敗してもアプリを停止させない。
 
 ## 対象外
 
-- 3・2・1・STARTと正式なGO時計
+- 3・2・1・STARTと正式な開始時計
 - 公式問題集、`puzzleId`、日替わり選出
 - undo・リタイアの正式UI
 - 正式結果画面
@@ -106,7 +113,7 @@ README.md
 
 ## 検証
 
-- モード、名前、HTML契約、記録分離の対象テスト21件は、同じコードを再現したローカル環境で合格した。
+- モード、名前、HTML契約、記録分離の対象テスト22件は、同じコードを再現したローカル環境で合格した。
 - `node --check src/main.js`相当の構文確認は合格した。
 - GitHub公開URLへ接続できない環境のため、リポジトリ全体の`npm test`は未実施。
 - ブラウザ・実機確認は未実施。
@@ -118,6 +125,7 @@ README.md
 - [x] 名前の空文字、空白、20文字、絵文字を検査できる。
 - [x] 保存済み名前を再利用できる。
 - [x] 保存失敗でも有効名でプレイ準備できる。
+- [x] 名前規則と端末保存の責務を分離する。
 - [x] 選択モードと名前を`RunController.prepare()`へ渡す。
 - [x] 再挑戦と新規盤面で新しい`playId`を発行する。
 - [x] エンドレスだけ端末内記録へ保存する。
@@ -135,4 +143,4 @@ P2-02統合後、最新`main`から次を開始する。
 P2-03: 3・2・1・STARTと公式時計
 ```
 
-P2-03では、現在の同期的な`countdown`通過を廃止し、盤面を隠したカウントダウン、GOと盤面表示と両Controllerの開始同期、公式モードの`visibilitychange`無効化を実装する。
+P2-03では、現在の同期的な`countdown`通過を廃止し、盤面を隠したカウントダウン、STARTと盤面表示と両Controllerの開始同期、公式モードの`visibilitychange`無効化を実装する。
