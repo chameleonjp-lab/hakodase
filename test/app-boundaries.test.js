@@ -28,10 +28,16 @@ test('mainはプレイヤー名保存をservices層から読み込む', () => {
   assert.doesNotMatch(source, /PlayerNameStore[^;]*from ['"]\.\/app\/player-name\.js['"]/s);
 });
 
-test('mainは旧pendingStartを使わずカウントダウン開始取引を使う', () => {
-  const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(source, /pendingStart/);
-  assert.match(source, /CountdownController/);
-  assert.match(source, /startPreparedRun/);
-  assert.match(source, /visibilitychange/);
+test('P2-03統合は専用モジュールで開始取引と中断監視を接続する', () => {
+  const flow = readFileSync(new URL('../src/ui/countdown-flow.js', import.meta.url), 'utf8');
+  const bootstrap = readFileSync(new URL('../src/p2-03-bootstrap.js', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+
+  assert.match(flow, /CountdownController/);
+  assert.match(flow, /startPreparedRun/);
+  assert.match(flow, /shouldInvalidateOnHidden/);
+  assert.match(flow, /visibilitychange/);
+  assert.match(flow, /_startPendingRun\s*=\s*function disableLegacyPendingStart/);
+  assert.match(bootstrap, /installCountdownFlow/);
+  assert.match(html, /src="src\/p2-03-bootstrap\.js"/);
 });
