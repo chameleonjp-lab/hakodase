@@ -69,8 +69,13 @@
       </form>
     </section>
 
-    <section id="screenCountdown" class="screen screen-card screen-center" data-screen="countdown" hidden aria-live="polite">
-      <p class="countdown-placeholder">出荷準備中…</p>
+    <section id="screenCountdown" class="screen screen-card screen-center countdown-screen" data-screen="countdown" hidden aria-live="assertive" aria-atomic="true">
+      <div class="countdown-panel">
+        <p id="countdownMode" class="countdown-mode"></p>
+        <p id="countdownValue" class="countdown-value" data-step="3">3</p>
+        <p id="countdownHint" class="countdown-hint">盤面はSTARTと同時に表示されます。</p>
+        <button id="countdownCancel" class="btn btn-ghost btn-wide" type="button">中止してホームへ</button>
+      </div>
     </section>
 
     <section id="screenPlaying" class="screen screen-playing" data-screen="playing" hidden>
@@ -87,6 +92,7 @@
 
       <section class="board-wrap">
         <canvas id="board"></canvas>
+        <div id="startFlash" class="start-flash" hidden aria-hidden="true">START</div>
       </section>
 
       <p id="message" class="message" data-kind="info" aria-live="polite"></p>
