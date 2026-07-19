@@ -187,3 +187,38 @@
 - 実ブラウザでの結果遷移、再挑戦、共有フォールバック。
 - 320×568で結果指標と主要ボタンが操作できること。
 - iPhone、iPadでWeb Share、Clipboard、手動コピーが期待どおり動作すること。
+
+## 2026-07-20: P2-06 Phase 1・2統合ブラウザGate
+
+### 決定
+1. Playwright Test 1.61.1を開発・CI専用依存として固定し、公開ゲームの実行時依存には加えない。
+2. 自動ブラウザ行列を320×568 WebKit、390×844 WebKit、1280×720 Chromiumとする。
+3. Node試験とPlaywright試験の自動探索を分離し、`npm test`は`test/*.test.js`だけを対象とする。
+4. Pull Request向けGitHub Actionsで`npm ci`、`git diff --check`、Node試験、Browser gateを必須検証単位とする。
+5. 失敗時のNode出力、Playwright report、trace、video、screenshotをartifactへ保存する。
+6. module scriptの評価順に依存しないよう、P2-03・04・05 bootstrapは即時導入に失敗した場合、`DOMContentLoaded`と`load`で再試行する。
+7. ブラウザ標準timer関数をreceiver-neutralなclosure経由で呼び、カウントダウンが3で停止する経路を閉じる。
+8. 新しい試行では、`countdown`へ遷移する前にタイム、操作、移動、undo表示を0へ戻す。
+9. GitHub Actions Run #14でNodeテスト150件、`git diff --check`、3つのbrowser projectが成功したため、自動Gateを合格とする。
+10. 自動WebKitの成功をiPhone・iPad実機確認済みとは扱わない。
+11. 手動実機Gateを完了するまでP2-06を完全合格とせず、P3-01を開始しない。
+
+### 判断理由
+- 単体テストだけでは、独立module scriptの実行順、ブラウザ標準timerのreceiver、短時間画面遷移、実際のDOM接続を検出できなかった。
+- 320px、標準iPhone幅、PC幅を同じCIで継続検査すると、後続Phaseの変更による横切れと統合回帰を早期に止められる。
+- ブラウザエンジンの自動試験と実機Safariでは、共有シート、ソフトウェアキーボード、画面ロック、safe areaの条件が異なる。
+
+### 自動Gate実績
+- Node tests and diff check: success。
+- Browser gate: success。
+- 横スクロール、console error、未処理ページ例外なし。
+- 自動retryで救済された失敗、予期しないskipなし。
+- 320×568を含むホーム・結果スクリーンショット確認済み。
+
+### 未確認事項
+- iPhone SE級、iPhone 11 Pro、iPhone 17 ProのSafari実機。
+- iPad Pro 2018の縦向き・横向き。
+- ソフトウェアキーボードと名前確定後の`blur()`。
+- 画面ロック、アプリ切替、Web Share共有シートと取消。
+- safe area、ピンチ、ダブルタップ、長押し、画面回転。
+- 実操作によるundoと詰みパネルの確認。
