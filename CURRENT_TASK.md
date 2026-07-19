@@ -1,20 +1,21 @@
-# CURRENT_TASK: P2-02 ホーム・名前確認・3モード選択
+# CURRENT_TASK: P2-03 3・2・1・STARTと公式時計
 
 ## 目的
 
-`AppController`を実際のDOMへ接続し、ホームで選んだモードと確認済みプレイヤー名を`RunController.prepare()`へ安全に渡す。
+盤面を先に見せず3・2・1・STARTを表示し、START、盤面公開、`RunController.start()`、`GameEngine.start()`を同じ描画フレームの一回の開始処理で行う。
 
 ## 基準
 
 - 正式な基準ブランチ: `main`
-- 基準コミット: Pull Request #5統合後の最新`main`
-- 作業ブランチ: `agent/hakodase-p2-02-home-name-modes`
+- 基準コミット: `86173f9ffc13a82ad0bfdd0b2a75766ca712141f`
+- 基準内容: Pull Request #6統合後のP2-02完了地点
+- 作業ブランチ: `agent/hakodase-p2-03-countdown-clock`
 - Pull Request base: `main`
 
 ## 今回の一目的
 
 ```text
-ホーム、名前確認、練習・本日の出荷・エンドレスの選択を実装し、既存ゲーム画面へ暫定接続する。
+3・2・1・START、盤面の事前非表示、両Controllerの同一時刻開始、本日の出荷の画面非表示無効化を実装する。
 ```
 
 ## 実装対象
@@ -22,133 +23,126 @@
 ### 新規コード
 
 ```text
-src/app/modes.js
-src/app/player-name.js
-src/services/player-name-store.js
+src/app/countdown-controller.js
+src/app/start-run.js
+src/app/visibility-policy.js
+src/ui/countdown-flow.js
+src/p2-03-bootstrap.js
 ```
 
-名前の規則は`src/app/player-name.js`へ、端末保存は`src/services/player-name-store.js`へ分ける。
-
-### 画面・統合
+### 画面・既存定義
 
 ```text
 index.html
 styles/main.css
-src/main.js
-src/services/ranking.js
+src/app/app-state.js
+src/app/modes.js
 ```
 
 ### テスト
 
 ```text
+test/countdown-controller.test.js
+test/start-run.test.js
+test/visibility-policy.test.js
+test/countdown-flow.test.js
+test/app-state.test.js
 test/modes.test.js
-test/player-name.test.js
 test/app-shell.test.js
 test/app-boundaries.test.js
-test/ranking.test.js
 ```
 
 ### 文書
 
 ```text
-docs/P2_02_HOME_NAME_MODES_v2.md
+docs/P2_03_COUNTDOWN_CLOCK_v2.md
 CURRENT_TASK.md
 DECISION_LOG.md
 docs/COMPLETION_STATUS_v2.md
 docs/REVIEW_CHECKLIST_v2.md
-docs/GAME_CONTRACT_v2.md
 docs/architecture.md
 README.md
 ```
 
 ## 実装内容
 
-### ホーム
+### カウントダウン
 
-- 一文説明を表示する。
-- 本日の出荷、エンドレス、練習を選べる。
-- 保存済みのプレイヤー名を表示する。
-- スタート、遊び方、端末内記録、ゲームシェア、実験場への導線を持つ。
+- `3 → 2 → 1 → START`を900ミリ秒間隔で進める。
+- 世代tokenで古いタイマーを無効にする。
+- 中止、再挑戦、新しい盤面、ホーム移動でカウントダウンを解除する。
+- 盤面は`playing`画面に置き、STARTまで表示しない。
 
-### 名前確認
+### 開始同期
 
-- 前後空白を除去する。
-- 空文字を拒否する。
-- 最大20文字とする。
-- 絵文字と記号を許可する。
-- 確定後に`blur()`する。
-- 端末内へ保存し、保存できない場合もプレイ自体は続けられる。
-- 名前の検査は保存機能へ依存させない。
-- メモリ退避を永続保存済みと誤表示しない。
+- START時の一つの`requestAnimationFrame`内で`countdown → playing`へ遷移する。
+- 最初の盤面フレームを描画する。
+- 同じ`frameTime`を`GameEngine.start()`と`RunController.start()`へ渡す。
+- 両方が成功した時だけ入力ロックを解除する。
+- 二重開始、古い`playId`、不正な時刻を拒否する。
+- 開始の片側だけ失敗した場合は操作可能にせずホームへ戻す。
 
-### 3モード
+### 再挑戦
 
-- `daily`は固定暫定seedを使い、「暫定・記録対象外」と表示する。
-- `endless`は現行のseed付きランダム盤面を使い、端末内記録だけ保存する。
-- `practice`は現行練習難易度と固定暫定seedを使い、記録対象外とする。
-- 公式問題、`puzzleId`、Supabaseはまだ接続しない。
+- `playing → countdown`を許可する。
+- やりなおし、新しい盤面、seed指定は新しい`playId`を発行する。
+- 以前の試行を`invalidated`へ変える。
+- すべての再開始がカウントダウンを通る。
 
-### 状態管理
+### 厳格時計
 
-- 画面表示は`AppController`の状態へ従う。
-- 名前確定時に`RunController.prepare()`で`playId`を発行する。
-- 再挑戦と新しい盤面でも新しい`playId`を発行する。
-- P2-03までの暫定として、`countdown`を同期的に通過して`playing`へ進む。
+- 本日の出荷だけ`strictClock: true`とする。
+- カウントダウン中またはプレイ中にページが隠れた場合、試行を無効にしてホームへ戻す。
+- P2-03時点の本日の出荷は暫定問題かつ記録対象外のままにする。
+- エンドレスと練習は画面非表示だけでは無効にしない。
 
-### 端末内記録
+### 統合境界
 
-- 新規記録へ`mode`を保存する。
-- エンドレスだけ保存・表示する。
-- モード情報がない旧v2記録は`legacy`扱いとし、エンドレスへ混ぜない。
-- 保存領域の読み取りや消去が失敗してもアプリを停止させない。
+- 純粋制御は`src/app/`へ置く。
+- DOM統合は`src/ui/countdown-flow.js`へ置く。
+- `src/p2-03-bootstrap.js`が既存ゲーム起動後に一度だけ接続する。
+- P2-02までの`pendingStart`開始は実行時に無効化する。
 
 ## 対象外
 
-- 3・2・1・STARTと正式な開始時計
-- 公式問題集、`puzzleId`、日替わり選出
-- undo・リタイアの正式UI
-- 正式結果画面
-- Supabase、SQL、オンラインランキング
-- 盤面生成第2世代
-- 出荷レーン、出荷シャッター
-- Three.js/WebGL
+- 正式結果画面。
+- undo・リタイア・詰みの正式UI。
+- 公式問題集、`puzzleId`、日替わり選出。
+- Supabase、SQL、オンラインランキング。
+- 盤面生成第2世代。
+- 出荷レーン、出荷シャッター。
+- Three.js/WebGL。
+- エンドレスと練習の一時停止時計。
 
 ## 検証
 
-P2-02対象テストは25件である。
-
-- 最新の名前規則、名前保存、モード、記録分離に関する純粋モジュール18件は、再現したローカル環境で合格した。
-- HTML構造とJavaScriptの要素ID契約5件は、保存層分離前の同一画面構造で合格した。現在の画面構造は変更していない。
-- app層とservices層の境界検査2件を追加した。
-- `src/main.js`は保存層分離前に構文確認済みで、その後の変更は`PlayerNameStore`のimport先変更だけである。
-- GitHub公開URLへ接続できない環境のため、25件の一括実行とリポジトリ全体の`npm test`は未実施。
-- ブラウザ・実機確認は未実施。
+- P2-03の純粋制御、DOM契約、境界、統合に関する対象テスト35件は、同じコードを再現したNode環境で全件合格した。
+- `countdown-flow.js`と`p2-03-bootstrap.js`の構文確認は合格した。
+- GitHubリポジトリ全体を取得できない環境のため、既存テストを含む`npm test`は未実施。
+- 実ブラウザ、320×568、iPhone、iPadは未確認。
 
 ## 完了条件
 
-- [x] ホームと名前確認画面がDOMへ追加される。
-- [x] 3モードを選択できる。
-- [x] 名前の空文字、空白、20文字、絵文字を検査できる。
-- [x] 保存済み名前を再利用できる。
-- [x] 保存失敗でも有効名でプレイ準備できる。
-- [x] 名前規則と端末保存の責務を分離する。
-- [x] メモリ退避を永続保存済みと扱わない。
-- [x] 選択モードと名前を`RunController.prepare()`へ渡す。
-- [x] 再挑戦と新規盤面で新しい`playId`を発行する。
-- [x] エンドレスだけ端末内記録へ保存する。
-- [x] 旧モード不明記録をエンドレスへ混ぜない。
-- [ ] P2-02対象25件を同じリポジトリ上で一括実行する。
+- [x] 3・2・1・STARTの純粋制御を追加する。
+- [x] 古いタイマーを世代tokenで拒否する。
+- [x] STARTまでGameEngineとRunControllerを開始しない。
+- [x] 同じ単調時刻で両Controllerを開始する。
+- [x] 二重開始と古い`playId`を拒否する。
+- [x] 再挑戦と新規盤面をカウントダウンへ戻す。
+- [x] 本日の出荷をページ非表示で無効化する。
+- [x] START表示と盤面公開のDOMを追加する。
+- [x] P2-03対象テスト35件を再現環境で合格させる。
 - [ ] リポジトリ全体の`npm test`が合格する。
-- [ ] 実ブラウザで主要画面遷移を確認する。
-- [ ] 320px幅で横スクロールがないことを確認する。
+- [ ] 実ブラウザでカウントダウンと開始を確認する。
+- [ ] 320×568で表示を確認する。
 - [ ] iPhone・iPad実機で確認する。
 
 ## 次に行う作業
 
-P2-02統合後、最新`main`から次を開始する。
+P2-03統合後、最新`main`から次を開始する。
 
 ```text
-P2-03: 3・2・1・STARTと公式時計
+P2-04: プレイ画面・undo・リタイア・詰み
 ```
 
-P2-03では、現在の同期的な`countdown`通過を廃止し、盤面を隠したカウントダウン、STARTと盤面表示と両Controllerの開始同期、公式モードの`visibilitychange`無効化を実装する。
+P2-04では、プレイ中に必要な情報と操作だけを表示し、GameEngineのundo、リタイア、合法操作0件の詰み案内を接続する。正式結果画面はP2-05へ分ける。

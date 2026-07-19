@@ -18,15 +18,16 @@ HAKODASE v2は段階的に実装しています。
 | v2仕様契約 | 完了 |
 | 中核コードの正しさ | コード完了 |
 | 状態機械とプレイ世代 | 統合済み |
-| ホーム・名前確認・3モード | P2-02で実装中 |
-| 3・2・1・START | 未実装 |
+| ホーム・名前確認・3モード | 統合済み |
+| 3・2・1・STARTと厳格時計 | P2-03で実装・レビュー待ち |
+| プレイ画面のundo・リタイア・詰み | 未実装 |
 | 正式結果画面 | 未実装 |
 | 公式問題集 | 未実装 |
 | Supabaseランキング | 未実装 |
 | 出荷レーン・シャッター | 未実装 |
 | ブラウザ・実機・公開確認 | 未実施 |
 
-現在の「本日の出荷」は固定暫定seedによるプレビューです。検証済み公式問題と`puzzleId`が未実装のため、公式記録や端末内記録へ保存しません。
+現在の「本日の出荷」は固定暫定seedによるプレビューです。検証済み公式問題と`puzzleId`が未実装のため、公式記録や端末内記録へ保存しません。ただし、将来の公式競技と同じ厳格時計を使い、カウントダウン中またはプレイ中にページが隠れた試行は無効にします。
 
 エンドレスだけが、現行のseed付きランダム盤面と端末内記録を利用します。練習は現行の短い盤面を使い、記録対象外です。
 
@@ -34,12 +35,12 @@ HAKODASE v2は段階的に実装しています。
 
 ## 画面の流れ
 
-P2-02時点では、次を実装しています。
+P2-03時点では、次を実装しています。
 
 ```text
 home
 → nameConfirm
-→ countdownを暫定的に通過
+→ countdown（3・2・1・START）
 → playing
 ```
 
@@ -55,7 +56,11 @@ home
 端末内へ保存
 ```
 
-正式な3・2・1・STARTはP2-03、undo・リタイアはP2-04、正式結果画面はP2-05で追加します。
+カウントダウン中は盤面を表示しません。START時の同じ描画フレームで盤面を公開し、`GameEngine`と`RunController`を同じ`performance.now()`系の時刻で一度だけ開始します。
+
+やりなおし、新しいエンドレス盤面、seed指定も新しい`playId`を発行し、再びカウントダウンを通ります。古いタイマーや古いSTART処理は現在のプレイへ作用しません。
+
+undo・リタイア・詰みはP2-04、正式結果画面はP2-05で追加します。
 
 ## 起動方法
 
@@ -98,12 +103,14 @@ npm test
 - 経過時間型アニメーション
 - 状態遷移と`playId`
 - プレイヤー名の規則と保存
-- 3モード
-- 端末内記録のモード分離
+- 3モードと記録分離
+- 3・2・1・STARTの順序と世代token
+- 両Controllerの同一時刻開始
+- 本日の出荷のページ非表示無効化
 - HTMLとJavaScriptの要素ID契約
-- app層とservices層の境界
+- app層、ui層、services層の境界
 
-P2-02対象は25件です。最新の純粋モジュール18件は再現したローカル環境で合格しました。HTML契約5件と層境界2件を含む25件の一括実行、リポジトリ全体の`npm test`、実ブラウザ、iPhone・iPad実機は未確認です。
+P2-03対象テスト35件は、同じコードを再現したNode環境で合格しました。既存テストを含むリポジトリ全体の`npm test`、実ブラウザ、320×568、iPhone・iPad実機は未確認です。
 
 ## 遊び方
 
@@ -122,10 +129,14 @@ styles/
   main.css
 src/
   main.js
+  p2-03-bootstrap.js
   app/
     app-state.js
     app-controller.js
     run-controller.js
+    countdown-controller.js
+    start-run.js
+    visibility-policy.js
     modes.js
     player-name.js
   core/
@@ -146,6 +157,7 @@ src/
     ranking.js
   ui/
     hud.js
+    countdown-flow.js
 scripts/
   dev-server.mjs
 test/
@@ -163,6 +175,7 @@ docs/
 - [レビュー・チェックリスト](docs/REVIEW_CHECKLIST_v2.md)
 - [P2-01 状態機械設計](docs/P2_01_STATE_MACHINE_v2.md)
 - [P2-02 ホーム・名前・モード設計](docs/P2_02_HOME_NAME_MODES_v2.md)
+- [P2-03 カウントダウン・時計設計](docs/P2_03_COUNTDOWN_CLOCK_v2.md)
 
 ## オリジナリティ
 
