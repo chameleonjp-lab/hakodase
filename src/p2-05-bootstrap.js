@@ -6,8 +6,10 @@ function install() {
   return installResultFlow(game);
 }
 
-if (document.readyState === 'loading') {
+// Independent module graphs can finish in a different order. Try immediately,
+// then retry after DOMContentLoaded and load. Duplicate installation is rejected
+// by installResultFlow itself.
+if (!install()) {
   document.addEventListener('DOMContentLoaded', install, { once: true });
-} else {
-  install();
+  window.addEventListener('load', install, { once: true });
 }
