@@ -12,6 +12,7 @@
 - [P2_01_STATE_MACHINE_v2.md](P2_01_STATE_MACHINE_v2.md)
 - [P2_02_HOME_NAME_MODES_v2.md](P2_02_HOME_NAME_MODES_v2.md)
 - [P2_03_COUNTDOWN_CLOCK_v2.md](P2_03_COUNTDOWN_CLOCK_v2.md)
+- [P2_04_PLAY_CONTROLS_v2.md](P2_04_PLAY_CONTROLS_v2.md)
 
 旧MVPの説明と矛盾する場合は、v2正本を優先する。
 
@@ -21,23 +22,27 @@
 2. 画面状態と1プレイ状態を分ける。
 3. 名前やモードの規則と、端末保存を分ける。
 4. カウントダウンと開始取引を、画面描画から分けて検査できるようにする。
-5. 非同期処理は画面世代、カウントダウンtoken、または`playId`を確認してから作用させる。
-6. 描画は状態を受け取るだけで、ゲーム状態を書き換えない。
-7. ランキング保存をGameEngineへ直結させない。
-8. Canvas2Dを正式な基本版として残す。
+5. undo・リタイア・詰みの条件をDOMから分けて検査できるようにする。
+6. 非同期処理は画面世代、カウントダウンtoken、または`playId`を確認してから作用させる。
+7. 描画は状態を受け取るだけで、ゲーム状態を書き換えない。
+8. ランキング保存をGameEngineへ直結させない。
+9. Canvas2Dを正式な基本版として残す。
 
 ## レイヤー構成
 
 ```text
-index.html / styles/main.css
-画面要素、カウントダウン、START表示、見た目
+index.html / styles/main.css / styles/p2-04.css
+画面要素、カウントダウン、START、プレイ操作、見た目
         │
         ▼
 src/main.js
 既存DOM配線、ゲームループ、Canvas統合
         │
         ├── src/p2-03-bootstrap.js
-        │   既存Game生成後にP2-03統合を一度だけ接続
+        │   Game生成後にカウントダウン・時計を接続
+        │
+        ├── src/p2-04-bootstrap.js
+        │   P2-03接続後にundo・リタイア・詰みを接続
         │
         ├── src/app/
         │   ├── app-state.js
@@ -52,6 +57,8 @@ src/main.js
         │   │   GameEngineとRunControllerの同一時刻開始
         │   ├── visibility-policy.js
         │   │   厳格時計のページ非表示無効化条件
+        │   ├── play-actions.js
+        │   │   現在プレイのundo・リタイア前提条件
         │   ├── modes.js
         │   │   daily / endless / practice、strictClock
         │   └── player-name.js
@@ -59,18 +66,22 @@ src/main.js
         │
         ├── src/ui/
         │   ├── hud.js
-        │   └── countdown-flow.js
-        │       カウントダウンのDOM統合、開始、画面非表示監視
+        │   ├── countdown-flow.js
+        │   │   カウントダウン、開始、画面非表示監視
+        │   └── play-flow.js
+        │       残り箱、undo、リタイア確認、詰みのDOM統合
         │
         ├── src/services/
         │   ├── player-name-store.js
         │   │   プレイヤー名の端末内保存
         │   └── ranking.js
-        │       端末内記録。Phase 4でRemoteRankingServiceを追加
+        │       端末内記録。Phase 4でRemoteRankingService追加
         │
         ├── src/core/
         │   ├── engine.js
         │   │   盤面、位置、操作数、距離、undo、時計、クリア
+        │   ├── play-status.js
+        │   │   残り箱、合法操作列挙、合法操作0件の詰み
         │   ├── rules.js
         │   ├── solver.js
         │   ├── generator.js
@@ -99,13 +110,23 @@ run-controller.js
 countdown-controller.js
 start-run.js
 visibility-policy.js
+play-actions.js
 modes.js
 player-name.js
 ```
 
-- GameEngineの内部実装へ依存しない。ただし`start-run.js`は公開された`status`、`start()`、`reset()`だけを利用する。
-- タイマー関数、時刻、画面状態は呼び出し側から受け取る。
+- GameEngineの内部実装へ依存しない。
+- `start-run.js`は公開された`status`、`start()`、`reset()`だけを利用する。
+- `play-actions.js`は公開された`status`、`canUndo()`、`undo()`、位置と計数値を利用する。
+- 時刻、画面状態、対象`playId`は呼び出し側から受け取る。
 - 結果データを保持できるが、保存や送信を実行しない。
+
+### `src/core/play-status.js`
+
+- DOM、Canvas、時計、保存、通信へ依存しない。
+- `rules.js`の`legalMovesFor()`を使い、GameEngineと同じ合法操作を判定する。
+- 残り箱、合法スライド数、可動箱数、合法操作0件の詰みだけを返す。
+- 将来解けない状態の完全探索は行わない。
 
 ### `src/ui/countdown-flow.js`
 
@@ -114,6 +135,16 @@ player-name.js
 - `CountdownController`、`startPreparedRun()`、`shouldInvalidateOnHidden()`の契約を利用する。
 - 古いタイマーと古い`playId`を現在試行へ作用させない。
 - P2-02までの`pendingStart`開始を実行時に無効化する。
+
+### `src/ui/play-flow.js`
+
+- DOM、GameEngine、RunController、AppControllerをつなぐP2-04の統合層。
+- 盤面の合法操作を独自実装せず、`analyzePlayState()`を利用する。
+- undoとリタイアの前提条件を独自実装せず、`play-actions.js`を利用する。
+- 現在の`playId`だけへ操作を作用させる。
+- undo後の論理位置とCanvas表示位置を同期する。
+- リタイア確認、詰み案内、ボタンの有効・無効を管理する。
+- 合法操作列挙は盤面状態が変わった時だけ更新し、毎描画フレームで再探索しない。
 
 ### `src/app/player-name.js`
 
@@ -154,6 +185,7 @@ player-name.js
 - P2-02以降の記録へ`mode`を保存する。
 - モード情報がない旧v2記録は`legacy`とし、エンドレス一覧へ混ぜない。
 - 保存領域の読み取りや消去が失敗しても、アプリ全体を停止させない。
+- リタイア、無効化、練習、本日の出荷プレビューは保存しない。
 
 ## 画面状態
 
@@ -169,7 +201,7 @@ ranking
 
 許可遷移は`src/app/app-state.js`を唯一の正しい表とする。
 
-P2-03で、再挑戦に必要な`playing → countdown`を追加する。
+P2-03で、再挑戦に必要な`playing → countdown`を追加した。
 
 成功した遷移ごとに`AppController.version`を進める。画面に属する遅延処理は開始時のversionを保持し、完了時に現在世代か確認する。
 
@@ -261,6 +293,8 @@ positions
 swipeCount
 distanceCells
 undoCount
+remainingBlocks
+canUndo
 status
 startedAt
 finalElapsedMs
@@ -271,6 +305,65 @@ history
 - 通過したマス数を`distanceCells`へ加える。
 - 競技経過時間は外部から渡す単調時刻で測る。
 - undoは箱位置、操作数、距離を戻すが、経過時間を戻さない。
+- `remainingBlocks`は退場していない箱を数える。
+- `canUndo()`は`playing`かつ履歴ありの時だけtrueを返す。
+
+## P2-04のプレイ操作
+
+### 残り箱
+
+```text
+positionsのnullではない要素数
+```
+
+HUDと`frameState`へ読み取り値を渡す。START前は`—`とし、クリア時は`0箱`になる。
+
+### undo
+
+```text
+現在playId
+かつ RunController playing
+かつ GameEngine playing
+かつ historyあり
+→ GameEngine.undo()
+→ 表示位置を論理位置へ同期
+→ HUDと詰み状態を更新
+```
+
+- タイマー開始時刻と経過時間を戻さない。
+- 通常の移動アニメーション中は実行しない。
+- 詰み中は履歴があれば実行できる。
+- 退場中フラグ、選択、プレビュー、粒子を解除する。
+
+### リタイア
+
+```text
+リタイア操作
+→ 確認パネル
+→ 現在playIdを確認
+→ RunController.retire()
+→ プレイ表示を片づける
+→ home
+```
+
+- 確認中も時計を進める。
+- ローカル記録とオンライン記録へ送らない。
+- 誤タップを避けるため、確認なしで終端化しない。
+- P2-05まで、クリア後の同じ位置は暫定的なホーム導線になる。
+
+### 詰み
+
+```text
+GameEngine playing
+かつ remainingBlocks > 0
+かつ legalSlideCount === 0
+```
+
+- Canvas入力を止める。
+- undo、やりなおし、リタイアを残す。
+- 自動的に終端状態へ変えない。
+- 時計を止めない。
+- 将来解けない状態の完全探索は行わない。
 
 ## 非同期処理の規則
 
@@ -286,6 +379,8 @@ history
 - PointerInputは選択、ドラッグ、確定、取消を通知する。
 - `playing`画面かつ現在の`playId`がplayingの時だけ箱入力を許可する。
 - START取引が終わるまで入力をロックする。
+- 通常移動アニメーション中は入力をロックする。
+- リタイア確認中と詰み中はCanvas入力をロックする。
 - Animationは経過時間で表示位置を目標へ近づける。
 - CanvasRendererは角丸箱、影、グラデーション、記号、出口、パーティクルを描く。
 - 論理座標は整数セルで保持し、表示位置だけを補間する。
@@ -302,11 +397,11 @@ Phase 3で次を追加する。
 - 厳密な最短操作ソルバー
 - 1000件以上の候補検査
 - 検証済み公式問題集
+- 複雑な詰みを減らす事前検証
 
 ## 後続の画面接続
 
 ```text
-P2-04: playing / undo / リタイア / 詰み
 P2-05: result / 再挑戦 / 共有 / 導線
 P2-06: Phase 1・2の実ブラウザ基準試験
 ```
