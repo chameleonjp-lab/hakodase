@@ -33,6 +33,16 @@ export class GameEngine {
   /** @deprecated v2ではdistanceCellsを使用する。内部コードでは使わない。 */
   get moveCount() { return this.distanceCells; }
 
+  get remainingBlocks() {
+    let count = 0;
+    for (const position of this.positions) if (position) count += 1;
+    return count;
+  }
+
+  canUndo() {
+    return this.status === 'playing' && this.history.length > 0;
+  }
+
   start(now = 0) {
     if (this.status !== 'ready') return false;
     this.startedAt = sanitizeNow(now);
@@ -93,9 +103,7 @@ export class GameEngine {
   }
 
   undo() {
-    if (this.status !== 'playing' || this.history.length === 0) {
-      return { undone: false };
-    }
+    if (!this.canUndo()) return { undone: false };
     const prev = this.history.pop();
     this.positions = prev.positions.map((p) => (p ? { x: p.x, y: p.y } : null));
     this.swipeCount = prev.swipeCount;
@@ -113,6 +121,8 @@ export class GameEngine {
       swipeCount: this.swipeCount,
       distanceCells: this.distanceCells,
       undoCount: this.undoCount,
+      remainingBlocks: this.remainingBlocks,
+      canUndo: this.canUndo(),
       status: this.status,
       selectedIndex: this.selectedIndex,
       cleared: this.status === 'cleared',
