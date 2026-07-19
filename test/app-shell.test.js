@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
-test('ホーム・名前確認・カウントダウン・プレイ・ルール・記録の画面を持つ', () => {
-  for (const state of ['home', 'nameConfirm', 'countdown', 'playing', 'rules', 'ranking']) {
+test('7つの画面状態をすべて持つ', () => {
+  for (const state of ['home', 'nameConfirm', 'countdown', 'playing', 'result', 'rules', 'ranking']) {
     assert.match(html, new RegExp(`data-screen=["']${state}["']`));
   }
 });
@@ -43,8 +43,23 @@ test('P2-04の残り箱、undo、リタイア、詰み要素を持つ', () => {
   assert.match(html, /id="stuckPanel"[^>]*role="alertdialog"/);
 });
 
-test('P2-04 bootstrapをP2-03の後で読み込む', () => {
-  assert.ok(html.indexOf('src/p2-03-bootstrap.js') < html.indexOf('src/p2-04-bootstrap.js'));
+test('P2-05結果画面に全指標と導線を持つ', () => {
+  for (const id of [
+    'resultTime', 'resultSwipes', 'resultDistance', 'resultUndo', 'resultOptimal', 'resultDelta',
+    'resultProblem', 'resultFirst', 'resultBest', 'resultSaveStatus', 'resultNetworkStatus',
+    'resultRetry', 'resultNext', 'resultShare', 'resultHome', 'resultLab', 'resultShareFallback',
+  ]) {
+    assert.match(html, new RegExp(`id=["']${id}["']`));
+  }
+  assert.match(html, /id="screenResult"[^>]*data-screen="result"/);
+  assert.match(html, /id="resultShareFallback"[^>]*readonly/);
+});
+
+test('Phase bootstrapを順番どおり読み込む', () => {
+  const p203 = html.indexOf('src/p2-03-bootstrap.js');
+  const p204 = html.indexOf('src/p2-04-bootstrap.js');
+  const p205 = html.indexOf('src/p2-05-bootstrap.js');
+  assert.ok(p203 >= 0 && p203 < p204 && p204 < p205);
 });
 
 test('main.jsが取得する全IDをindex.htmlが持つ', () => {
