@@ -8,6 +8,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234cc2ff'/%3E%3Crect x='8' y='8' width='16' height='16' rx='4' fill='%2304222f'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="styles/main.css" />
   <link rel="stylesheet" href="styles/p2-04.css" />
+  <link rel="stylesheet" href="styles/p2-05.css" />
 </head>
 <body data-app-state="home">
   <main class="app" id="app">
@@ -102,11 +103,56 @@
       </section>
     </section>
 
+    <section id="screenResult" class="screen screen-card result-screen" data-screen="result" hidden aria-labelledby="resultTitle">
+      <div class="result-heading">
+        <div>
+          <p id="resultMode" class="result-mode"></p>
+          <h2 id="resultTitle">出荷完了</h2>
+        </div>
+        <p id="resultPlayer" class="small-note"></p>
+      </div>
+
+      <section class="result-primary" aria-label="クリア結果">
+        <div class="result-time"><span>クリアタイム</span><strong id="resultTime">0.00秒</strong></div>
+        <div class="result-metric"><span>操作</span><strong id="resultSwipes">0操作</strong></div>
+        <div class="result-metric"><span>移動</span><strong id="resultDistance">0マス</strong></div>
+        <div class="result-metric"><span>戻す</span><strong id="resultUndo">0回</strong></div>
+      </section>
+
+      <dl class="result-details">
+        <div><dt>最短・目安</dt><dd id="resultOptimal">—</dd></div>
+        <div><dt>最短との差</dt><dd id="resultDelta">—</dd></div>
+        <div><dt>問題</dt><dd id="resultProblem">—</dd></div>
+      </dl>
+
+      <section class="result-records" aria-labelledby="resultRecordsTitle">
+        <h3 id="resultRecordsTitle">この問題の端末内記録</h3>
+        <div class="result-record-grid">
+          <p><span>初回</span><strong id="resultFirst">—</strong></p>
+          <p><span>ベスト</span><strong id="resultBest">—</strong></p>
+        </div>
+        <p id="resultSaveStatus" class="small-note"></p>
+        <p id="resultNetworkStatus" class="small-note"></p>
+      </section>
+
+      <div class="result-actions">
+        <button id="resultRetry" class="btn btn-primary" type="button">同じ問題を再挑戦</button>
+        <button id="resultNext" class="btn" type="button" hidden>新しい盤面へ</button>
+        <button id="resultShare" class="btn" type="button">結果をシェア</button>
+        <button id="resultHome" class="btn btn-ghost" type="button">ホームへ</button>
+        <a id="resultLab" class="btn btn-link" href="https://chameleonjp.codeberg.page/chameleonjp_lab/">実験場へ戻る</a>
+      </div>
+      <label class="result-fallback-label" for="resultShareFallback">共有文</label>
+      <textarea id="resultShareFallback" class="result-share-fallback" readonly hidden></textarea>
+      <p id="resultMessage" class="message" data-kind="info" aria-live="polite"></p>
+    </section>
+
     <section id="screenRules" class="screen screen-card" data-screen="rules" hidden><h2>遊び方</h2><ol class="rules-list"><li>箱を上下左右へドラッグすると、止まる場所まで一気に滑ります。</li><li>箱と同じ色・記号の搬出口から盤外へ出します。</li><li>すべての箱を出せばクリアです。出す順番を考えてください。</li></ol><p class="small-note">出荷レーンと出荷シャッターは後続Phaseで追加します。</p><button id="rulesBack" class="btn btn-wide" type="button">ホームへ戻る</button></section>
     <section id="screenRanking" class="screen screen-card" data-screen="ranking" hidden><div class="ranking-head"><h2>端末内記録</h2><button id="clearRanking" class="btn btn-ghost" type="button">記録を消去</button></div><p class="small-note">現在はエンドレスの端末内記録だけを表示します。公式ランキングは未接続です。</p><ol id="ranking" class="ranking"></ol><button id="rankingBack" class="btn btn-wide" type="button">ホームへ戻る</button></section>
   </main>
   <script type="module" src="src/main.js"></script>
   <script type="module" src="src/p2-03-bootstrap.js"></script>
   <script type="module" src="src/p2-04-bootstrap.js"></script>
+  <script type="module" src="src/p2-05-bootstrap.js"></script>
 </body>
 </html>

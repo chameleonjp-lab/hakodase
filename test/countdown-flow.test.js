@@ -142,3 +142,20 @@ test('エンドレスは画面非表示だけでは試行を無効化しない',
   assert.equal(game.appController.state, APP_STATES.COUNTDOWN);
   assert.equal(game.runController.status, 'prepared');
 });
+
+test('結果画面から同じ問題を新しいplayIdでカウントダウンへ戻せる', () => {
+  const { game, scheduler, frames } = createHarness(GAME_MODES.ENDLESS);
+  game._prepareSelectedMode();
+  scheduler.flushAll();
+  frames.shift()(5000);
+  const previousPlayId = game.currentPlayId;
+  game.runController.complete(previousPlayId, { timeMs: 1000 }, 6000);
+  game.appController.transition(APP_STATES.RESULT);
+
+  assert.equal(game._restartActiveRun(game.meta.seed), true);
+  assert.equal(game.appController.state, APP_STATES.COUNTDOWN);
+  assert.equal(game.runController.status, 'prepared');
+  assert.ok(game.currentPlayId > previousPlayId);
+  assert.equal(game.engine.status, 'ready');
+  assert.equal(game.inputLocked, true);
+});

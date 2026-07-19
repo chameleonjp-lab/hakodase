@@ -212,7 +212,8 @@ export function installCountdownFlow(game, {
   };
 
   game._restartActiveRun = function restartActiveRunP203(seed) {
-    if (!game.activeRunConfig || game.appController.state !== APP_STATES.PLAYING) return false;
+    const restartableState = game.appController.state === APP_STATES.PLAYING || game.appController.state === APP_STATES.RESULT;
+    if (!game.activeRunConfig || !restartableState) return false;
     invalidateCurrent('restart');
     const config = { ...game.activeRunConfig, seed };
     return prepareRun(config, getGameMode(config.mode));
