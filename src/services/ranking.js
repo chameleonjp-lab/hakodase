@@ -3,6 +3,7 @@
 export class RankingService {
   async saveScore(score) { throw new Error('not implemented'); }
   async listScores(filter) { throw new Error('not implemented'); }
+  async getScoreSummary(filter) { throw new Error('not implemented'); }
   async clearScores() { throw new Error('not implemented'); }
 }
 
@@ -31,6 +32,27 @@ function byRank(a, b) {
   if (a.timeMs !== b.timeMs) return a.timeMs - b.timeMs;
   if (a.swipeCount !== b.swipeCount) return a.swipeCount - b.swipeCount;
   return String(a.clearedAt || '').localeCompare(String(b.clearedAt || ''));
+}
+
+function freezeScore(score) {
+  return score ? Object.freeze({ ...score }) : null;
+}
+
+export function summarizeScores(scores) {
+  const values = Array.isArray(scores) ? scores.map(normalize).filter(Boolean) : [];
+  if (!values.length) return Object.freeze({ count: 0, first: null, best: null });
+
+  const first = [...values].sort((a, b) => {
+    const dateOrder = String(a.clearedAt || '').localeCompare(String(b.clearedAt || ''));
+    return dateOrder || byRank(a, b);
+  })[0];
+  const best = [...values].sort(byRank)[0];
+
+  return Object.freeze({
+    count: values.length,
+    first: freezeScore(first),
+    best: freezeScore(best),
+  });
 }
 
 function defaultStorage() {
@@ -82,6 +104,12 @@ export class LocalRankingService extends RankingService {
     all.sort(byRank);
     if (filter.limit) all = all.slice(0, filter.limit);
     return all;
+  }
+
+  async getScoreSummary(filter = {}) {
+    const query = { ...filter };
+    delete query.limit;
+    return summarizeScores(await this.listScores(query));
   }
 
   async clearScores() {
