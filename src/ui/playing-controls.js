@@ -55,6 +55,8 @@ export function installPlayingControls(game, {
   let retireOpen = false;
   let stuckOpen = false;
   let lastSignature = '';
+  let lastLegalSignature = '';
+  let lastHasLegalMove = true;
 
   function isLivePlaying() {
     return Boolean(
@@ -145,9 +147,22 @@ export function installPlayingControls(game, {
     const active = isLivePlaying();
     const remainingCount = engine?.remainingCount ?? 0;
     const historyLength = engine?.history?.length ?? 0;
-    const hasLegalMove = active && !game.inputLocked && !dialogOpen()
-      ? engine.hasAnyLegalMove()
-      : true;
+    const legalSignature = [
+      game.currentPlayId,
+      engine?.swipeCount ?? 0,
+      engine?.undoCount ?? 0,
+      remainingCount,
+      historyLength,
+    ].join('|');
+    let hasLegalMove = true;
+    if (active && !game.inputLocked && !dialogOpen()) {
+      if (force || legalSignature !== lastLegalSignature) {
+        lastHasLegalMove = engine.hasAnyLegalMove();
+        lastLegalSignature = legalSignature;
+      }
+      hasLegalMove = lastHasLegalMove;
+    }
+
     const controlState = derivePlayControlState({
       appState: game.appController.state,
       runStatus: game.runController.status,
@@ -185,6 +200,8 @@ export function installPlayingControls(game, {
     hideRetire();
     hideStuck();
     lastSignature = '';
+    lastLegalSignature = '';
+    lastHasLegalMove = true;
     refresh(true);
   };
 
@@ -210,6 +227,8 @@ export function installPlayingControls(game, {
     if (event.state !== APP_STATES.PLAYING) {
       hideRetire();
       hideStuck();
+      lastLegalSignature = '';
+      lastHasLegalMove = true;
     }
     refresh(true);
   });
