@@ -33,6 +33,16 @@ export class GameEngine {
   /** @deprecated v2ではdistanceCellsを使用する。内部コードでは使わない。 */
   get moveCount() { return this.distanceCells; }
 
+  get remainingCount() {
+    let count = 0;
+    for (const position of this.positions) if (position) count += 1;
+    return count;
+  }
+
+  get canUndo() {
+    return this.status === 'playing' && this.history.length > 0;
+  }
+
   start(now = 0) {
     if (this.status !== 'ready') return false;
     this.startedAt = sanitizeNow(now);
@@ -48,6 +58,14 @@ export class GameEngine {
   }
 
   isCleared() { return isCleared(this.positions); }
+
+  hasAnyLegalMove() {
+    if (this.status !== 'playing') return false;
+    for (let index = 0; index < this.positions.length; index += 1) {
+      if (this.positions[index] && legalMovesFor(this.board, this.positions, index).length > 0) return true;
+    }
+    return false;
+  }
 
   blockAt(x, y) {
     for (let i = 0; i < this.positions.length; i++) {
@@ -113,6 +131,8 @@ export class GameEngine {
       swipeCount: this.swipeCount,
       distanceCells: this.distanceCells,
       undoCount: this.undoCount,
+      remainingCount: this.remainingCount,
+      canUndo: this.canUndo,
       status: this.status,
       selectedIndex: this.selectedIndex,
       cleared: this.status === 'cleared',

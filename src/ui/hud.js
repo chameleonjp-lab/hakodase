@@ -1,4 +1,4 @@
-// HUD: タイマー・操作数・移動距離・メッセージ・ランキング表示の DOM 更新のみ担当。
+// HUD: タイマー・操作数・移動距離・残り箱・undo回数・メッセージ・ランキング表示の DOM 更新のみ担当。
 
 export function formatTime(ms) {
   return (ms / 1000).toFixed(2) + '秒';
@@ -14,6 +14,17 @@ export class HUD {
 
   setStats(swipeCount, distanceCells = 0) {
     this.els.moves.textContent = `${swipeCount}操作 / 移動${distanceCells}マス`;
+  }
+
+  setRemaining(remaining, total = null) {
+    if (!this.els.remaining) return;
+    this.els.remaining.textContent = Number.isFinite(total)
+      ? `${remaining} / ${total}箱`
+      : `${remaining}箱`;
+  }
+
+  setUndoCount(count) {
+    if (this.els.undoCount) this.els.undoCount.textContent = `${count}回`;
   }
 
   setTarget(optimalSwipes, exact) {

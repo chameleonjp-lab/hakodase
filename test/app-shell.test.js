@@ -35,6 +35,18 @@ test('カウントダウンとSTART表示に必要な要素を持つ', () => {
   assert.match(html, /aria-live="assertive"/);
 });
 
+test('P2-04の残り箱、undo、リタイア、詰み要素を持つ', () => {
+  for (const id of ['remaining', 'undoCount', 'undoButton', 'playHome', 'retireConfirm', 'retireContinue', 'retireConfirmButton', 'stuckPanel', 'stuckUndo', 'stuckRetry', 'stuckRetire']) {
+    assert.match(html, new RegExp(`id=["']${id}["']`));
+  }
+  assert.match(html, /id="retireConfirm"[^>]*role="dialog"/);
+  assert.match(html, /id="stuckPanel"[^>]*role="alertdialog"/);
+});
+
+test('P2-04 bootstrapをP2-03の後で読み込む', () => {
+  assert.ok(html.indexOf('src/p2-03-bootstrap.js') < html.indexOf('src/p2-04-bootstrap.js'));
+});
+
 test('main.jsが取得する全IDをindex.htmlが持つ', () => {
   const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
   const ids = [...main.matchAll(/getElementById\(['"]([^'"]+)['"]\)/g)].map((match) => match[1]);
