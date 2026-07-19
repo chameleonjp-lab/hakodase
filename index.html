@@ -87,8 +87,9 @@
       <section class="stats" aria-label="プレイ状況">
         <div class="stat"><span class="stat-label">タイム</span><span id="time" class="stat-value">0.00秒</span></div>
         <div class="stat"><span class="stat-label">操作</span><span id="moves" class="stat-value">0操作 / 移動0マス</span></div>
-        <div class="stat"><span class="stat-label">目標</span><span id="target" class="stat-value">-</span></div>
+        <div class="stat"><span class="stat-label">残り</span><span id="remaining" class="stat-value">—</span></div>
       </section>
+      <p class="play-meta">問題の目安 <span id="target">-</span></p>
 
       <section class="board-wrap">
         <canvas id="board"></canvas>
@@ -97,10 +98,16 @@
 
       <p id="message" class="message" data-kind="info" aria-live="polite"></p>
 
-      <section class="controls">
+      <section id="deadlockPanel" class="deadlock-panel" hidden role="alert" aria-live="assertive">
+        <strong>出荷できなくなりました</strong>
+        <span>動かせる箱がありません。1操作戻す、やりなおし、リタイアから選んでください。</span>
+      </section>
+
+      <section class="controls play-controls" aria-label="プレイ操作">
+        <button id="undo" class="btn" type="button" disabled>1操作戻す</button>
         <button id="retry" class="btn" type="button">やりなおし</button>
         <button id="new" class="btn btn-primary" type="button">新しい盤面</button>
-        <button id="playHome" class="btn btn-ghost" type="button">ホームへ</button>
+        <button id="playHome" class="btn btn-danger" type="button">リタイア</button>
       </section>
 
       <form id="seedForm" class="seed-row" hidden>
@@ -112,6 +119,17 @@
       <footer class="howto">
         <p>箱をドラッグすると壁・他の箱・盤端に当たるまで滑ります。同じ色と記号の搬出口からすべて出してください。</p>
       </footer>
+
+      <div id="retirePanel" class="retire-overlay" hidden>
+        <section class="retire-card" role="dialog" aria-modal="true" aria-labelledby="retireTitle" aria-describedby="retireDescription">
+          <h2 id="retireTitle">リタイアしますか？</h2>
+          <p id="retireDescription">この試行のタイムと操作数は記録されません。確認中もタイマーは進みます。</p>
+          <div class="retire-actions">
+            <button id="retireCancel" class="btn btn-primary" type="button">プレイを続ける</button>
+            <button id="retireConfirm" class="btn btn-danger" type="button">リタイアする</button>
+          </div>
+        </section>
+      </div>
     </section>
 
     <section id="screenRules" class="screen screen-card" data-screen="rules" hidden>
@@ -138,5 +156,6 @@
 
   <script type="module" src="src/main.js"></script>
   <script type="module" src="src/p2-03-bootstrap.js"></script>
+  <script type="module" src="src/p2-04-bootstrap.js"></script>
 </body>
 </html>
