@@ -1,0 +1,127 @@
+/* P2-05 結果画面。320px幅で主要情報と操作を縦に保つ。 */
+.result-screen {
+  display: grid;
+  gap: 12px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(52,211,153,0.12), transparent 34%),
+    var(--panel);
+}
+
+.result-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.result-heading h2 { margin-top: 2px; font-size: 23px; }
+.result-mode { margin: 0; color: var(--accent-2); font-size: 12px; font-weight: 800; }
+
+.result-primary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.result-time {
+  grid-column: 1 / -1;
+  padding: 14px 10px;
+  border: 1px solid rgba(52,211,153,0.25);
+  border-radius: var(--radius);
+  background: rgba(52,211,153,0.08);
+  text-align: center;
+}
+.result-time span,
+.result-metric span,
+.result-record-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+.result-time strong {
+  display: block;
+  margin-top: 2px;
+  font-size: clamp(32px, 12vw, 46px);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+.result-metric {
+  min-width: 0;
+  padding: 9px 5px;
+  border-radius: 10px;
+  background: var(--panel-2);
+  text-align: center;
+}
+.result-metric strong { display: block; margin-top: 3px; overflow-wrap: anywhere; font-size: 15px; }
+
+.result-details {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.06);
+}
+.result-details div {
+  display: grid;
+  grid-template-columns: minmax(78px, 0.8fr) minmax(0, 1.6fr);
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--panel-2);
+}
+.result-details dt { color: var(--muted); font-size: 12px; }
+.result-details dd { margin: 0; overflow-wrap: anywhere; text-align: right; font-size: 13px; font-weight: 700; }
+
+.result-records {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  background: var(--panel-2);
+}
+.result-records h3 { margin: 0; font-size: 13px; }
+.result-record-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.result-record-grid p { min-width: 0; margin: 0; padding: 7px; border-radius: 8px; background: var(--panel); }
+.result-record-grid strong { display: block; margin-top: 2px; overflow-wrap: anywhere; font-size: 13px; font-variant-numeric: tabular-nums; }
+
+.result-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.result-actions #resultRetry,
+.result-actions #resultNext,
+.result-actions #resultShare { grid-column: 1 / -1; }
+.result-fallback-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.result-share-fallback {
+  width: 100%;
+  min-height: 112px;
+  padding: 10px;
+  resize: vertical;
+  border: 1px solid #2c3543;
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.55;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.result-share-fallback[hidden] + .message { margin-top: 0; }
+
+@media (max-width: 340px) {
+  .result-heading { display: grid; }
+  .result-heading h2 { font-size: 21px; }
+  .result-primary { gap: 6px; }
+  .result-time { padding-block: 11px; }
+  .result-metric { padding-inline: 3px; }
+  .result-metric strong { font-size: 13px; }
+  .result-details div { grid-template-columns: 72px minmax(0, 1fr); padding-inline: 8px; }
+  .result-actions { grid-template-columns: 1fr; }
+  .result-actions > * { grid-column: 1 !important; }
+}
