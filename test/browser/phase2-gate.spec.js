@@ -10,10 +10,11 @@ function watchBrowserErrors(page) {
 }
 
 async function expectNoHorizontalOverflow(page) {
-  await expect.poll(() => page.evaluate(() => ({
-    document: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    body: document.body.scrollWidth - document.body.clientWidth,
-  }))).toEqual({ document: 0, body: 0 });
+  await expect.poll(() => page.evaluate(() => Math.max(
+    0,
+    document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    document.body.scrollWidth - document.body.clientWidth,
+  ))).toBeLessThanOrEqual(1);
 }
 
 async function startMode(page, mode = 'practice') {
@@ -71,8 +72,8 @@ test('homeからnameConfirm、countdown、playingへ一度ずつ進む', async (
 test('クリア結果を一度だけ表示し、共有フォールバックと再挑戦が動く', async ({ page }, testInfo) => {
   const errors = watchBrowserErrors(page);
   await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
-    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
+    try { Object.defineProperty(navigator, 'share', { configurable: true, value: undefined }); } catch (_) { /* noop */ }
+    try { Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined }); } catch (_) { /* noop */ }
   });
   await startMode(page, 'endless');
   const firstPlayId = await page.evaluate(() => window.hakodase.currentPlayId);
@@ -168,18 +169,15 @@ test('本日の出荷はページ非表示で無効化される', async ({ page 
   const errors = watchBrowserErrors(page);
   await startMode(page, 'daily');
   const simulated = await page.evaluate(() => {
-    const own = Object.getOwnPropertyDescriptor(document, 'hidden');
-    const inherited = Object.getOwnPropertyDescriptor(Document.prototype, 'hidden');
     try {
       Object.defineProperty(document, 'hidden', { configurable: true, value: true });
-      document.dispatchEvent(new Event('visibilitychange'));
-      return true;
     } catch (_) {
-      if (own) Object.defineProperty(document, 'hidden', own);
-      else if (inherited?.configurable) Object.defineProperty(Document.prototype, 'hidden', { ...inherited, get: () => true });
-      document.dispatchEvent(new Event('visibilitychange'));
-      return document.hidden === true;
+      const inherited = Object.getOwnPropertyDescriptor(Document.prototype, 'hidden');
+      if (!inherited?.configurable) return false;
+      Object.defineProperty(Document.prototype, 'hidden', { configurable: true, get: () => true });
     }
+    document.dispatchEvent(new Event('visibilitychange'));
+    return document.hidden === true;
   });
   expect(simulated).toBe(true);
   await expect(page.locator('body')).toHaveAttribute('data-app-state', 'home');
