@@ -15,3 +15,36 @@ test('resetで状態、履歴、undoCountが戻る', () => { const e = new GameE
 test('undoで位置、操作数、距離が戻りタイマーは戻らない', () => { const e = new GameEngine({ width: 3, height: 1, walls: new Set(), oneway: new Map(), gates: [], blocks: [{ id: 0, x: 0, y: 0, w: 1, h: 1, color: 0 }] }); e.start(100); e.tryMove(0, 'right', 150); assert.equal(e.swipeCount, 1); assert.equal(e.undo().undone, true); assert.deepEqual(e.positions, [{ x: 0, y: 0 }]); assert.equal(e.swipeCount, 0); assert.equal(e.distanceCells, 0); assert.equal(e.undoCount, 1); assert.equal(e.elapsedMs(200), 100); });
 test('履歴なしとクリア後のundoは失敗する', () => { const e = new GameEngine(simpleBoard()); e.start(0); assert.equal(e.undo().undone, false); e.tryMove(0, 'right', 10); assert.equal(e.undo().undone, false); });
 test('blockAt は退場後 -1 を返す', () => { const e = new GameEngine(simpleBoard()); e.start(0); assert.equal(e.blockAt(0, 0), 0); e.tryMove(0, 'right', 10); assert.equal(e.blockAt(0, 0), -1); });
+
+test('remainingCountは退場で減りframeStateにも反映される', () => {
+  const engine = new GameEngine(simpleBoard());
+  assert.equal(engine.remainingCount, 1);
+  engine.start(0);
+  engine.tryMove(0, 'right', 1);
+  assert.equal(engine.remainingCount, 0);
+  assert.equal(engine.getFrameState().remainingCount, 0);
+});
+
+test('canUndoは履歴とplaying状態に従う', () => {
+  const engine = new GameEngine({ width: 3, height: 1, walls: new Set(), oneway: new Map(), gates: [], blocks: [{ id: 0, x: 0, y: 0, w: 1, h: 1, color: 0 }] });
+  assert.equal(engine.canUndo, false);
+  engine.start(0);
+  engine.tryMove(0, 'right', 1);
+  assert.equal(engine.canUndo, true);
+  assert.equal(engine.getFrameState().canUndo, true);
+  engine.undo();
+  assert.equal(engine.canUndo, false);
+});
+
+test('合法手が一つでもあればhasAnyLegalMoveはtrue', () => {
+  const engine = new GameEngine({ width: 3, height: 1, walls: new Set(), oneway: new Map(), gates: [], blocks: [{ id: 0, x: 0, y: 0, w: 1, h: 1, color: 0 }] });
+  engine.start(0);
+  assert.equal(engine.hasAnyLegalMove(), true);
+});
+
+test('残り箱があり合法手0件ならhasAnyLegalMoveはfalse', () => {
+  const engine = new GameEngine({ width: 1, height: 1, walls: new Set(), oneway: new Map(), gates: [], blocks: [{ id: 0, x: 0, y: 0, w: 1, h: 1, color: 0 }] });
+  engine.start(0);
+  assert.equal(engine.remainingCount, 1);
+  assert.equal(engine.hasAnyLegalMove(), false);
+});
