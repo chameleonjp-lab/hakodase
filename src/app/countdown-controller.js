@@ -27,8 +27,11 @@ export class CountdownController {
       throw new TypeError('schedule and cancelSchedule must be functions');
     }
     this.stepMs = stepMs;
-    this._schedule = schedule;
-    this._cancelSchedule = cancelSchedule;
+    // Native timer functions can depend on their receiver in browsers. Keep the
+    // injected functions behind receiver-neutral closures before calling them as
+    // controller methods.
+    this._schedule = (callback, delayMs) => schedule(callback, delayMs);
+    this._cancelSchedule = (timerId) => cancelSchedule(timerId);
     this._generation = 0;
     this._timerId = null;
     this._active = false;
