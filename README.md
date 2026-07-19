@@ -3,7 +3,7 @@
 箱を滑らせ、順番と倉庫設備を読み、同じ印の搬出口からすべて出荷する短時間パズルです。
 
 - HTML / CSS / バニラJavaScriptの静的サイト
-- ビルド不要・実行時の外部依存なし
+- ビルド不要・ゲーム実行時の外部依存なし
 - iPhone SE級の横幅320pxを優先
 - Canvas2D描画
 - ゲームロジックと描画を分離
@@ -16,27 +16,29 @@ HAKODASE v2は段階的に実装しています。
 | 工程 | 状態 |
 | --- | --- |
 | v2仕様契約 | 完了 |
-| 中核コードの正しさ | コード完了 |
-| 状態機械とプレイ世代 | 統合済み |
-| ホーム・名前確認・3モード | 統合済み |
-| 3・2・1・STARTと厳格時計 | 統合済み |
-| プレイ画面のundo・リタイア・詰み | 統合済み |
-| 正式結果画面・再挑戦・共有 | P2-05で実装・レビュー待ち |
-| Phase 1・2統合ブラウザGate | 未実施 |
+| 中核コードの正しさ | 統合済み・自動Gate合格 |
+| 状態機械とプレイ世代 | 統合済み・自動Gate合格 |
+| ホーム・名前確認・3モード | 統合済み・自動Gate合格 |
+| 3・2・1・STARTと厳格時計 | 統合済み・自動Gate合格 |
+| プレイ画面のundo・リタイア・詰み | 統合済み・自動Gate合格 |
+| 正式結果画面・再挑戦・共有 | 統合済み・自動Gate合格 |
+| Phase 1・2統合ブラウザGate | 自動Gate合格・手動実機待ち |
 | 公式問題集 | 未実装 |
 | Supabaseランキング | 未実装 |
 | 出荷レーン・シャッター | 未実装 |
-| 実機・公開確認 | 未実施 |
+| 公開確認 | 未実施 |
+
+Pull Request #11のGitHub Actions Run #14で、Nodeテスト150件、`git diff --check`、320×568 WebKit、390×844 WebKit、1280×720 Chromiumの自動Gateが成功しました。
+
+自動WebKitの成功をiPhone実機確認済みとは扱いません。iPhone・iPad Safari、画面ロック、共有シート、ソフトウェアキーボード、safe areaなどの手動Gateが残っています。
 
 現在の「本日の出荷」は固定暫定seedによるプレビューです。検証済み公式問題と`puzzleId`が未実装のため、公式記録や端末内記録へ保存しません。ただし、将来の公式競技と同じ厳格時計を使い、カウントダウン中またはプレイ中にページが隠れた試行は無効にします。
 
 エンドレスだけが現行のseed付き盤面と端末内記録を利用します。練習は記録対象外です。
 
-詳しい現在地は[完成状況](docs/COMPLETION_STATUS_v2.md)、完成までの工程は[完成計画](docs/COMPLETION_PLAN_v2.md)を参照してください。
+詳しい現在地は[完成状況](docs/COMPLETION_STATUS_v2.md)、P2-06の結果は[統合ブラウザGate](docs/P2_06_BROWSER_GATE_v2.md)、完成までの工程は[完成計画](docs/COMPLETION_PLAN_v2.md)を参照してください。
 
 ## 画面の流れ
-
-P2-05時点では次を実装しています。
 
 ```text
 home
@@ -69,23 +71,23 @@ home
 
 ### 本日の出荷
 
-- 固定暫定問題。
-- 厳格時計。
-- ページ非表示で試行無効。
-- 公式問題集とSupabaseが未実装のため記録対象外。
+- 固定暫定問題
+- 厳格時計
+- ページ非表示で試行無効
+- 公式問題集とSupabaseが未実装のため記録対象外
 
 ### エンドレス
 
-- seed付きランダム盤面。
-- 同じseedの再挑戦と新しい盤面。
-- 端末内記録、同一seedの初回・ベスト。
-- 公式総合ランキングへ混ぜない。
+- seed付きランダム盤面
+- 同じseedの再挑戦と新しい盤面
+- 端末内記録、同一seedの初回・ベスト
+- 公式総合ランキングへ混ぜない
 
 ### 練習
 
-- 固定された短い暫定問題。
-- 端末内・オンラインとも記録対象外。
-- 正式チュートリアルはPhase 5で追加。
+- 固定された短い暫定問題
+- 端末内・オンラインとも記録対象外
+- 正式チュートリアルはPhase 5で追加
 
 ## プレイヤー名
 
@@ -112,7 +114,7 @@ home
 
 ## 起動方法
 
-Node.jsがあれば、追加パッケージなしで起動できます。
+ゲームのローカル起動には追加パッケージは不要です。
 
 ```bash
 npm run dev
@@ -126,77 +128,77 @@ http://localhost:5173/
 
 ES Modulesを使うため、`index.html`をファイルとして直接開かずローカルサーバー経由で開いてください。
 
-## テスト
+## Nodeテスト
+
+初回だけ開発依存を固定状態で導入します。
 
 ```bash
+npm ci
 npm test
+```
+
+Nodeテストは`test/*.test.js`だけを対象とし、Playwright specと混在させません。
+
+## ブラウザテスト
+
+```bash
+npm ci
+npx playwright install chromium webkit
+npm run test:browser
+```
+
+対象project:
+
+```text
+mobile-320-webkit
+mobile-390-webkit
+desktop-chromium
 ```
 
 主な検査対象:
 
-- seedの再現性と盤面ルール
-- 操作数、移動距離、最短操作
-- Pointer Events中断と経過時間型アニメーション
-- 画面状態、`playId`、カウントダウンtoken
-- プレイヤー名と3モード
-- undo、リタイア、詰み
+- 横スクロール
+- Phase bootstrapの実ブラウザ接続
+- ホーム、名前、カウントダウン、プレイ、結果
+- START前の盤面非表示と0.00秒
+- START後の時計開始
+- `pointercancel`と`lostpointercapture`
+- リタイア確認
 - 結果の一回表示と古い結果の拒否
-- 同一条件の端末内初回・ベスト
-- Web Share、Clipboard、手動コピー
-- HTML要素とPhase bootstrap順
-- app、ui、services、coreの境界
+- 同じ問題の再挑戦
+- 共有不能時の手動コピー
+- 本日の出荷のページ非表示無効化
+- console errorとpage error
 
-P2-05対象18件は再現したNode環境で合格しています。既存テストを含むリポジトリ全体の`npm test`、`git diff --check`、実ブラウザ、320×568、390×844、PC、iPhone・iPad実機は未確認です。
+GitHub ActionsはNode試験出力、Playwright HTML report、失敗時のtrace・video・screenshot、各projectのホーム・結果スクリーンショットをartifactとして保存します。
+
+## P2-06で修正した主な統合不具合
+
+- module scriptの評価順によってP2-03・04・05が接続されない場合があったため、`DOMContentLoaded`と`load`で安全に再試行するよう修正。
+- ブラウザ標準timer関数へ不正なreceiverが渡りカウントダウンが3で止まる場合があったため、receiver-neutralなclosureへ修正。
+- 結果から再挑戦した際に前回タイムがカウントダウンへ一瞬残ったため、遷移前にHUDを0へ初期化。
 
 ## ディレクトリ構成
 
 ```text
+.github/workflows/ci.yml
+playwright.config.js
 index.html
 styles/
-  main.css
-  p2-04.css
-  p2-05.css
 src/
   main.js
   p2-03-bootstrap.js
   p2-04-bootstrap.js
   p2-05-bootstrap.js
   app/
-    app-state.js
-    app-controller.js
-    run-controller.js
-    countdown-controller.js
-    start-run.js
-    visibility-policy.js
-    modes.js
-    player-name.js
-    play-control-policy.js
-    result-model.js
   core/
-    rng.js
-    rules.js
-    solver.js
-    generator.js
-    engine.js
-    palette.js
   input/
-    pointer-input.js
   render/
-    renderer.js
-    canvas-renderer.js
-    animation.js
   services/
-    player-name-store.js
-    ranking.js
-    share-result.js
   ui/
-    hud.js
-    countdown-flow.js
-    playing-controls.js
-    result-flow.js
 scripts/
-  dev-server.mjs
 test/
+  browser/
 docs/
 ```
 
@@ -214,10 +216,11 @@ docs/
 - [P2-03 カウントダウン・時計設計](docs/P2_03_COUNTDOWN_CLOCK_v2.md)
 - [P2-04 プレイ操作設計](docs/P2_04_PLAYING_CONTROLS_v2.md)
 - [P2-05 結果・共有設計](docs/P2_05_RESULT_SHARE_v2.md)
+- [P2-06 統合ブラウザGate](docs/P2_06_BROWSER_GATE_v2.md)
 
 ## 次の工程
 
-P2-05統合後はP2-06でPhase 1・2の統合ブラウザ検証を行います。P2-06を通過するまでPhase 3の盤面生成第2世代を開始しません。
+Pull Request #11統合後も、iPhone・iPadの手動実機Gateを完了するまでP3-01を開始しません。
 
 ## オリジナリティ
 
