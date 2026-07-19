@@ -6,9 +6,10 @@ function install() {
   return installCountdownFlow(game);
 }
 
-// Module scripts can run while the document is already `interactive` but before
-// main.js's DOMContentLoaded listener creates the Game instance. Try now, then
-// retry once at DOMContentLoaded when the shared game is not ready yet.
+// Independent module graphs can finish in a different order. Try immediately,
+// then retry after DOMContentLoaded and load so Game creation order cannot skip
+// the Phase integration. The flow itself rejects duplicate installation.
 if (!install()) {
   document.addEventListener('DOMContentLoaded', install, { once: true });
+  window.addEventListener('load', install, { once: true });
 }
