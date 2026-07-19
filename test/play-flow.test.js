@@ -62,7 +62,7 @@ function makeGame(options = {}) {
   const appController = new AppController(APP_STATES.PLAYING);
   const runController = new RunController();
   const prepared = runController.prepare({ mode: 'endless' });
-  const engine = new GameEngine(board(options));
+  const engine = new GameEngine(options.board || board(options));
   engine.start(10);
   runController.start(prepared.run.playId, 10);
   return {
@@ -70,14 +70,15 @@ function makeGame(options = {}) {
     runController,
     currentPlayId: prepared.run.playId,
     engine,
-    view: [{ x: 0, y: 0 }],
-    target: [{ x: 0, y: 0 }],
-    exiting: [false],
+    view: engine.positions.map((position) => (position ? { ...position } : null)),
+    target: engine.positions.map((position) => (position ? { ...position } : null)),
+    exiting: engine.positions.map(() => false),
     particles: [{}],
     dragIndex: -1,
     dragOffset: { x: 0, y: 0 },
     preview: null,
     inputLocked: false,
+    ranking: { saveCalls: 0, async saveScore() { this.saveCalls += 1; } },
     hud: {
       setStats(swipeCount, distanceCells) { this.stats = [swipeCount, distanceCells]; },
       message(text, kind) { this.last = [text, kind]; },
@@ -102,6 +103,33 @@ test('undoで表示位置を論理位置へ同期し時計は変更しない', (
   assert.equal(game.engine.undoCount, 1);
 });
 
+test('搬出済み箱をundoするとCanvas表示位置へ復元する', () => {
+  const exitBoard = {
+    width: 3,
+    height: 2,
+    walls: new Set(),
+    oneway: new Map(),
+    gates: [{ side: 'right', line: 0, color: 0 }],
+    blocks: [
+      { id: 0, x: 0, y: 0, w: 1, h: 1, color: 0 },
+      { id: 1, x: 0, y: 1, w: 1, h: 1, color: 1 },
+    ],
+  };
+  const game = makeGame({ board: exitBoard });
+  const elements = makeElements();
+  installPlayFlow(game, { documentRef: fakeDocument(), elements });
+  assert.equal(game.engine.tryMove(0, 'right', 20).exit, true);
+  game.view[0] = null;
+  game.target[0] = null;
+  game.exiting[0] = false;
+  game._updateAnimations(0.016);
+  elements.undo.dispatch('click');
+  assert.deepEqual(game.engine.positions[0], { x: 0, y: 0 });
+  assert.deepEqual(game.view[0], { x: 0, y: 0 });
+  assert.equal(game.exiting[0], false);
+  assert.equal(game.engine.status, 'playing');
+});
+
 test('合法操作0件を詰みとして表示しundoがなければ無効にする', () => {
   const game = makeGame({ deadlocked: true });
   const elements = makeElements();
@@ -112,7 +140,7 @@ test('合法操作0件を詰みとして表示しundoがなければ無効にす
   assert.equal(elements.undo.disabled, true);
 });
 
-test('リタイア確認後にrunをretiredへしてホームへ戻す', () => {
+test('リタイア確認後にrunをretiredへして記録せずホームへ戻す', () => {
   const game = makeGame();
   const elements = makeElements();
   installPlayFlow(game, { documentRef: fakeDocument(), elements, now: () => 250 });
@@ -120,6 +148,7 @@ test('リタイア確認後にrunをretiredへしてホームへ戻す', () => {
   assert.equal(elements.retirePanel.hidden, false);
   elements.retireConfirm.dispatch('click');
   assert.equal(game.runController.status, RUN_STATUS.RETIRED);
+  assert.equal(game.ranking.saveCalls, 0);
   assert.equal(game.left, true);
   assert.deepEqual(game.homeMessage, ['リタイアしました。記録は保存されません。', 'info']);
 });
