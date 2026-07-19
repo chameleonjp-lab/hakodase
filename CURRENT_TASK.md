@@ -1,21 +1,21 @@
-# CURRENT_TASK: P2-03 3・2・1・STARTと公式時計
+# CURRENT_TASK: P2-04 プレイ画面・undo・リタイア・詰み
 
 ## 目的
 
-盤面を先に見せず3・2・1・STARTを表示し、START、盤面公開、`RunController.start()`、`GameEngine.start()`を同じ描画フレームの一回の開始処理で行う。
+プレイ中に必要な情報と操作だけを表示し、現在の`playId`に対してGameEngineのundo、リタイア、合法操作0件の詰み案内を安全に接続する。
 
 ## 基準
 
 - 正式な基準ブランチ: `main`
-- 基準コミット: `86173f9ffc13a82ad0bfdd0b2a75766ca712141f`
-- 基準内容: Pull Request #6統合後のP2-02完了地点
-- 作業ブランチ: `agent/hakodase-p2-03-countdown-clock`
+- 基準コミット: `24cdb7d4571b98397d18fc0828b17b4e3f4054e9`
+- 基準内容: Pull Request #7統合後のP2-03完了地点
+- 作業ブランチ: `agent/hakodase-p2-04-play-controls`
 - Pull Request base: `main`
 
 ## 今回の一目的
 
 ```text
-3・2・1・START、盤面の事前非表示、両Controllerの同一時刻開始、本日の出荷の画面非表示無効化を実装する。
+残り箱、undo、リタイア確認、合法操作0件の詰み案内をプレイ画面へ接続する。
 ```
 
 ## 実装対象
@@ -23,31 +23,27 @@
 ### 新規コード
 
 ```text
-src/app/countdown-controller.js
-src/app/start-run.js
-src/app/visibility-policy.js
-src/ui/countdown-flow.js
-src/p2-03-bootstrap.js
+src/core/play-status.js
+src/app/play-actions.js
+src/ui/play-flow.js
+src/p2-04-bootstrap.js
+styles/p2-04.css
 ```
 
-### 画面・既存定義
+### 既存コード・画面
 
 ```text
+src/core/engine.js
 index.html
-styles/main.css
-src/app/app-state.js
-src/app/modes.js
 ```
 
 ### テスト
 
 ```text
-test/countdown-controller.test.js
-test/start-run.test.js
-test/visibility-policy.test.js
-test/countdown-flow.test.js
-test/app-state.test.js
-test/modes.test.js
+test/play-status.test.js
+test/play-actions.test.js
+test/play-flow.test.js
+test/engine.test.js
 test/app-shell.test.js
 test/app-boundaries.test.js
 ```
@@ -55,7 +51,7 @@ test/app-boundaries.test.js
 ### 文書
 
 ```text
-docs/P2_03_COUNTDOWN_CLOCK_v2.md
+docs/P2_04_PLAY_CONTROLS_v2.md
 CURRENT_TASK.md
 DECISION_LOG.md
 docs/COMPLETION_STATUS_v2.md
@@ -66,83 +62,91 @@ README.md
 
 ## 実装内容
 
-### カウントダウン
+### プレイHUD
 
-- `3 → 2 → 1 → START`を900ミリ秒間隔で進める。
-- 世代tokenで古いタイマーを無効にする。
-- 中止、再挑戦、新しい盤面、ホーム移動でカウントダウンを解除する。
-- 盤面は`playing`画面に置き、STARTまで表示しない。
+- タイム、操作と移動マス、残り箱を主要表示とする。
+- `optimalSwipes`は「問題の目安」として補助表示へ移す。
+- `GameEngine`から`remainingBlocks`と`canUndo`を読み取れるようにする。
 
-### 開始同期
+### undo
 
-- START時の一つの`requestAnimationFrame`内で`countdown → playing`へ遷移する。
-- 最初の盤面フレームを描画する。
-- 同じ`frameTime`を`GameEngine.start()`と`RunController.start()`へ渡す。
-- 両方が成功した時だけ入力ロックを解除する。
-- 二重開始、古い`playId`、不正な時刻を拒否する。
-- 開始の片側だけ失敗した場合は操作可能にせずホームへ戻す。
+- 現在の`playId`かつ両Controllerがplayingの時だけ実行する。
+- 履歴がない時はボタンを無効にする。
+- 通常アニメーション中はボタンを無効にする。
+- 詰み案内中は、履歴があればundoできる。
+- 箱位置、`swipeCount`、`distanceCells`を戻す。
+- `undoCount`を増やす。
+- タイマーは戻さない。
+- undo後は表示位置を論理位置へ正確に合わせ、退場演出と選択状態を消す。
 
-### 再挑戦
+### リタイア
 
-- `playing → countdown`を許可する。
-- やりなおし、新しい盤面、seed指定は新しい`playId`を発行する。
-- 以前の試行を`invalidated`へ変える。
-- すべての再開始がカウントダウンを通る。
+- プレイ中の「ホームへ」をリタイアへ置き換える。
+- 確認パネルを表示し、確認中もタイマーを進める。
+- 確定時は`RunController.retire()`を一度だけ成功させる。
+- リタイア記録を保存せずホームへ戻す。
+- クリア後はP2-05までの暫定として同じボタンを「ホームへ」に変える。
 
-### 厳格時計
+### 詰み
 
-- 本日の出荷だけ`strictClock: true`とする。
-- カウントダウン中またはプレイ中にページが隠れた場合、試行を無効にしてホームへ戻す。
-- P2-03時点の本日の出荷は暫定問題かつ記録対象外のままにする。
-- エンドレスと練習は画面非表示だけでは無効にしない。
+- `playing`で残り箱があり、合法スライドが0件の時だけ検出する。
+- Canvas入力を止める。
+- undo、やりなおし、リタイアを選べる状態を保つ。
+- 自動的にリタイアや無効化をしない。
+- 完全な将来詰み探索は行わない。
 
-### 統合境界
+### 責務分離
 
-- 純粋制御は`src/app/`へ置く。
-- DOM統合は`src/ui/countdown-flow.js`へ置く。
-- `src/p2-03-bootstrap.js`が既存ゲーム起動後に一度だけ接続する。
-- P2-02までの`pendingStart`開始は実行時に無効化する。
+- 残り箱と詰み判定は`src/core/play-status.js`へ置く。
+- undoとリタイアの前提条件は`src/app/play-actions.js`へ置く。
+- DOM統合は`src/ui/play-flow.js`へ置く。
+- `src/p2-04-bootstrap.js`がP2-03接続後に一度だけ導入する。
 
 ## 対象外
 
 - 正式結果画面。
-- undo・リタイア・詰みの正式UI。
+- 結果共有。
+- 初回記録とベスト記録表示。
 - 公式問題集、`puzzleId`、日替わり選出。
 - Supabase、SQL、オンラインランキング。
 - 盤面生成第2世代。
+- 将来解けない状態の完全探索。
+- undo専用アニメーション。
 - 出荷レーン、出荷シャッター。
 - Three.js/WebGL。
-- エンドレスと練習の一時停止時計。
 
 ## 検証
 
-- P2-03の純粋制御、DOM契約、境界、統合に関する対象テスト35件は、同じコードを再現したNode環境で全件合格した。
-- `countdown-flow.js`と`p2-03-bootstrap.js`の構文確認は合格した。
+- 新規の純粋判定・操作・DOM統合に関する12件は、同じコードを再現したNode環境で合格した。
+- 実際の`rules.js`、`GameEngine`、`RunController`を使うリポジトリ追加テストを作成した。
 - GitHubリポジトリ全体を取得できない環境のため、既存テストを含む`npm test`は未実施。
 - 実ブラウザ、320×568、iPhone、iPadは未確認。
 
 ## 完了条件
 
-- [x] 3・2・1・STARTの純粋制御を追加する。
-- [x] 古いタイマーを世代tokenで拒否する。
-- [x] STARTまでGameEngineとRunControllerを開始しない。
-- [x] 同じ単調時刻で両Controllerを開始する。
-- [x] 二重開始と古い`playId`を拒否する。
-- [x] 再挑戦と新規盤面をカウントダウンへ戻す。
-- [x] 本日の出荷をページ非表示で無効化する。
-- [x] START表示と盤面公開のDOMを追加する。
-- [x] P2-03対象テスト35件を再現環境で合格させる。
+- [x] 残り箱数を主要HUDへ表示する。
+- [x] `GameEngine.canUndo()`を追加する。
+- [x] 現在のプレイだけがundoできる。
+- [x] undoが操作数と距離を戻し、時計を戻さない。
+- [x] undo後に表示位置を論理位置へ同期する。
+- [x] リタイア確認を追加する。
+- [x] リタイアを`retired`として一度だけ確定する。
+- [x] リタイア記録を保存しない。
+- [x] 合法操作0件の詰みを検出する。
+- [x] 詰み時にundo・やりなおし・リタイアを残す。
+- [x] P2-04の単体テストと画面契約テストを追加する。
 - [ ] リポジトリ全体の`npm test`が合格する。
-- [ ] 実ブラウザでカウントダウンと開始を確認する。
-- [ ] 320×568で表示を確認する。
+- [ ] `git diff --check`相当の差分確認が合格する。
+- [ ] 実ブラウザでundo、リタイア、詰みを確認する。
+- [ ] 320×568で主要HUDと確認パネルを確認する。
 - [ ] iPhone・iPad実機で確認する。
 
 ## 次に行う作業
 
-P2-03統合後、最新`main`から次を開始する。
+P2-04統合後、最新`main`から次を開始する。
 
 ```text
-P2-04: プレイ画面・undo・リタイア・詰み
+P2-05: 正式結果画面・再挑戦・共有
 ```
 
-P2-04では、プレイ中に必要な情報と操作だけを表示し、GameEngineのundo、リタイア、合法操作0件の詰み案内を接続する。正式結果画面はP2-05へ分ける。
+P2-05では、クリア・リタイア・無効化の結果表示、同じ問題の再挑戦、モード別の次の行動、結果共有、ホームと実験場への導線を実装する。Supabaseと公式問題集はまだ接続しない。
