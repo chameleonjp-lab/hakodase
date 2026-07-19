@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LocalRankingService, MemoryStorage, STORAGE_KEY } from '../src/services/ranking.js';
+import { LocalRankingService, MemoryStorage, STORAGE_KEY, summarizeScores } from '../src/services/ranking.js';
 
 const score = (overrides = {}) => ({
   seed: 's',
@@ -81,4 +81,26 @@ test('モード、難易度、seed、limitでフィルタでき、clearできる
   assert.equal((await ranking.listScores({ mode: 'practice' })).length, 1);
   assert.equal(await ranking.clearScores(), true);
   assert.equal((await ranking.listScores()).length, 0);
+});
+
+test('初回は最古日時、ベストはタイムと操作数で選ぶ', () => {
+  const summary = summarizeScores([
+    score({ timeMs: 900, clearedAt: '2026-01-03T00:00:00.000Z' }),
+    score({ timeMs: 1200, clearedAt: '2026-01-01T00:00:00.000Z' }),
+    score({ timeMs: 900, swipeCount: 2, clearedAt: '2026-01-02T00:00:00.000Z' }),
+  ]);
+  assert.equal(summary.count, 3);
+  assert.equal(summary.first.timeMs, 1200);
+  assert.equal(summary.best.swipeCount, 2);
+});
+
+test('同じモード・難易度・seedだけで初回とベストを集計する', async () => {
+  const ranking = new LocalRankingService(new MemoryStorage());
+  await ranking.saveScore(score({ seed: 'a', timeMs: 1200, clearedAt: '2026-01-01T00:00:00.000Z' }));
+  await ranking.saveScore(score({ seed: 'a', timeMs: 800, clearedAt: '2026-01-02T00:00:00.000Z' }));
+  await ranking.saveScore(score({ seed: 'b', timeMs: 100, clearedAt: '2026-01-03T00:00:00.000Z' }));
+  const summary = await ranking.getScoreSummary({ mode: 'endless', difficulty: 'normal', seed: 'a' });
+  assert.equal(summary.count, 2);
+  assert.equal(summary.first.timeMs, 1200);
+  assert.equal(summary.best.timeMs, 800);
 });
