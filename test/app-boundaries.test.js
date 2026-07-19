@@ -9,12 +9,26 @@ const pureAppFiles = [
   '../src/app/countdown-controller.js',
   '../src/app/start-run.js',
   '../src/app/visibility-policy.js',
+  '../src/app/play-actions.js',
   '../src/app/modes.js',
   '../src/app/player-name.js',
 ];
 
+const pureCoreFiles = [
+  '../src/core/play-status.js',
+];
+
 test('純粋なappモジュールはDOM・Canvas・保存・Supabaseへ依存しない', () => {
   for (const relativePath of pureAppFiles) {
+    const source = readFileSync(new URL(relativePath, import.meta.url), 'utf8');
+    for (const forbidden of ['document.', 'window.', 'localStorage', 'sessionStorage', 'getContext(', 'supabase']) {
+      assert.equal(source.includes(forbidden), false, `${relativePath} contains ${forbidden}`);
+    }
+  }
+});
+
+test('プレイ状態の純粋判定はDOM・Canvas・保存・Supabaseへ依存しない', () => {
+  for (const relativePath of pureCoreFiles) {
     const source = readFileSync(new URL(relativePath, import.meta.url), 'utf8');
     for (const forbidden of ['document.', 'window.', 'localStorage', 'sessionStorage', 'getContext(', 'supabase']) {
       assert.equal(source.includes(forbidden), false, `${relativePath} contains ${forbidden}`);
@@ -40,4 +54,17 @@ test('P2-03統合は専用モジュールで開始取引と中断監視を接続
   assert.match(flow, /_startPendingRun\s*=\s*function disableLegacyPendingStart/);
   assert.match(bootstrap, /installCountdownFlow/);
   assert.match(html, /src="src\/p2-03-bootstrap\.js"/);
+});
+
+test('P2-04統合は専用モジュールでundo・リタイア・詰みを接続する', () => {
+  const flow = readFileSync(new URL('../src/ui/play-flow.js', import.meta.url), 'utf8');
+  const bootstrap = readFileSync(new URL('../src/p2-04-bootstrap.js', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+
+  assert.match(flow, /analyzePlayState/);
+  assert.match(flow, /undoCurrentRun/);
+  assert.match(flow, /retireCurrentRun/);
+  assert.match(flow, /stopImmediatePropagation/);
+  assert.match(bootstrap, /installPlayFlow/);
+  assert.match(html, /src="src\/p2-04-bootstrap\.js"/);
 });
