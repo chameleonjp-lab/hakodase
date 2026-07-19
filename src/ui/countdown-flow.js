@@ -169,6 +169,7 @@ export function installCountdownFlow(game, {
     if (!definition || !config) return false;
     cancelCountdown('replaced');
     hideStartFlash();
+    game.inputLocked = true;
 
     const prepared = game.runController.prepare(config);
     if (!prepared.accepted) return false;
