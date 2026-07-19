@@ -40,15 +40,18 @@ function createFixture({ hasLegalMove = true, canUndo = true } = {}) {
     },
   };
   let legal = hasLegalMove;
+  let legalChecks = 0;
   const engine = {
     status: 'playing',
     remainingCount: 2,
+    swipeCount: 0,
+    distanceCells: 0,
     undoCount: 0,
     history: canUndo ? [{}] : [],
     canUndo,
     board: { blocks: [{}, {}] },
     positions: [{ x: 0, y: 0 }, { x: 1, y: 0 }],
-    hasAnyLegalMove() { return legal; },
+    hasAnyLegalMove() { legalChecks += 1; return legal; },
     undo() {
       if (!this.canUndo) return { undone: false };
       this.history = [];
@@ -80,7 +83,7 @@ function createFixture({ hasLegalMove = true, canUndo = true } = {}) {
     _setHomeMessage(text, kind) { this.homeMessage = [text, kind]; },
     retry() { this.retried = (this.retried || 0) + 1; },
   };
-  return { game, elements, documentRef, messages };
+  return { game, elements, documentRef, messages, getLegalChecks: () => legalChecks };
 }
 
 test('undoで論理位置と表示位置を同期し、タイマーを戻さない案内を出す', () => {
@@ -114,6 +117,19 @@ test('合法手0件で詰み案内を出し、詰み画面からundoできる', 
   assert.equal(elements.stuckPanel.hidden, true);
   assert.equal(game.engine.undoCount, 1);
   assert.equal(game.inputLocked, false);
+});
+
+test('合法手判定は同じ論理状態で毎フレーム再計算しない', () => {
+  const { game, documentRef, getLegalChecks } = createFixture();
+  installPlayingControls(game, { documentRef });
+  const first = getLegalChecks();
+  assert.ok(first >= 1);
+  game._updateAnimations(0.016);
+  game._updateAnimations(0.016);
+  assert.equal(getLegalChecks(), first);
+  game.engine.swipeCount += 1;
+  game._updateAnimations(0.016);
+  assert.equal(getLegalChecks(), first + 1);
 });
 
 test('destroyでイベントとラッパーを解除する', () => {
