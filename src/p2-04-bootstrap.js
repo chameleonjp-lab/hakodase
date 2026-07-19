@@ -6,8 +6,8 @@ function install() {
   return installPlayingControls(game);
 }
 
-if (document.readyState === 'loading') {
+// Module scripts may execute at `interactive` before main.js creates the Game.
+// Retry at DOMContentLoaded only when the immediate installation cannot run.
+if (!install()) {
   document.addEventListener('DOMContentLoaded', install, { once: true });
-} else {
-  install();
 }
