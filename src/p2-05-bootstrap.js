@@ -6,8 +6,10 @@ function install() {
   return installResultFlow(game);
 }
 
-// Module scripts may execute at `interactive` before main.js creates the Game.
-// Retry at DOMContentLoaded only when the immediate installation cannot run.
+// Independent module graphs can finish in a different order. Try immediately,
+// then retry after DOMContentLoaded and load. Duplicate installation is rejected
+// by installResultFlow itself.
 if (!install()) {
   document.addEventListener('DOMContentLoaded', install, { once: true });
+  window.addEventListener('load', install, { once: true });
 }
