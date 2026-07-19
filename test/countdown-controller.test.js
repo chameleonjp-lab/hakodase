@@ -78,6 +78,31 @@ test('表示側の例外で進行を壊さない', () => {
   assert.equal(starts, 1);
 });
 
+test('ブラウザ標準タイマー相当へControllerのreceiverを漏らさない', () => {
+  let scheduleReceiver = 'not-called';
+  let cancelReceiver = 'not-called';
+  let timerCallback = null;
+
+  function receiverSensitiveSchedule(callback) {
+    scheduleReceiver = this;
+    timerCallback = callback;
+    return 1;
+  }
+  function receiverSensitiveCancel() {
+    cancelReceiver = this;
+  }
+
+  const countdown = new CountdownController({
+    schedule: receiverSensitiveSchedule,
+    cancelSchedule: receiverSensitiveCancel,
+  });
+  countdown.start({ onStart() {} });
+  assert.equal(scheduleReceiver, undefined);
+  assert.equal(typeof timerCallback, 'function');
+  countdown.cancel('test');
+  assert.equal(cancelReceiver, undefined);
+});
+
 test('destroy後は開始できず古いタイマーも発火しない', () => {
   const fake = new FakeScheduler({ ignoreClear: true });
   let starts = 0;
