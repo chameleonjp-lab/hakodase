@@ -35,6 +35,15 @@ test('カウントダウンとSTART表示に必要な要素を持つ', () => {
   assert.match(html, /aria-live="assertive"/);
 });
 
+test('プレイ画面に残り箱、undo、リタイア、詰み案内を持つ', () => {
+  for (const id of ['remaining', 'undo', 'playHome', 'deadlockPanel', 'retirePanel', 'retireCancel', 'retireConfirm']) {
+    assert.match(html, new RegExp(`id=["']${id}["']`));
+  }
+  assert.match(html, /出荷できなくなりました/);
+  assert.match(html, /styles\/p2-04\.css/);
+  assert.match(html, /src="src\/p2-04-bootstrap\.js"/);
+});
+
 test('main.jsが取得する全IDをindex.htmlが持つ', () => {
   const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
   const ids = [...main.matchAll(/getElementById\(['"]([^'"]+)['"]\)/g)].map((match) => match[1]);
