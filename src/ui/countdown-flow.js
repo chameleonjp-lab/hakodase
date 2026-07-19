@@ -170,6 +170,9 @@ export function installCountdownFlow(game, {
     cancelCountdown('replaced');
     hideStartFlash();
     game.inputLocked = true;
+    game.hud?.setTime?.(0);
+    game.hud?.setStats?.(0, 0);
+    game.hud?.setUndoCount?.(0);
 
     const prepared = game.runController.prepare(config);
     if (!prepared.accepted) return false;
