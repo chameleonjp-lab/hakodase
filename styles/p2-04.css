@@ -1,0 +1,112 @@
+/* P2-04: プレイ中の残り箱、undo、詰み、リタイア確認。 */
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+  transform: none;
+}
+
+.btn-danger {
+  border-color: rgba(251,113,133,0.55);
+  background: rgba(251,113,133,0.12);
+  color: #fecdd3;
+}
+
+.play-meta {
+  min-height: 18px;
+  margin: 5px 2px 0;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: right;
+}
+
+.play-meta #target {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.deadlock-panel {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(251,191,36,0.42);
+  border-radius: 10px;
+  background: rgba(251,191,36,0.10);
+  color: #fde68a;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.deadlock-panel strong,
+.deadlock-panel span {
+  display: block;
+}
+
+.deadlock-panel strong {
+  margin-bottom: 2px;
+  font-size: 13px;
+}
+
+.screen-playing.is-deadlocked .board-wrap {
+  outline: 2px solid rgba(251,191,36,0.42);
+  outline-offset: 2px;
+}
+
+.play-controls {
+  grid-template-columns: 1fr 1fr;
+}
+
+.retire-overlay {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  padding:
+    max(16px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+  background: rgba(4,8,13,0.78);
+  display: grid;
+  place-items: center;
+}
+
+.retire-card {
+  width: min(100%, 360px);
+  padding: 18px;
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+}
+
+.retire-card h2 {
+  margin: 0;
+  font-size: 19px;
+}
+
+.retire-card p {
+  margin: 10px 0 16px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.retire-actions {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 8px;
+}
+
+body[data-retire-open="true"] {
+  overflow: hidden;
+}
+
+@media (max-width: 340px) {
+  .play-controls,
+  .retire-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .retire-card {
+    padding: 15px;
+  }
+}
