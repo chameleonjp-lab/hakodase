@@ -6,8 +6,9 @@ function install() {
   return installCountdownFlow(game);
 }
 
-if (document.readyState === 'loading') {
+// Module scripts can run while the document is already `interactive` but before
+// main.js's DOMContentLoaded listener creates the Game instance. Try now, then
+// retry once at DOMContentLoaded when the shared game is not ready yet.
+if (!install()) {
   document.addEventListener('DOMContentLoaded', install, { once: true });
-} else {
-  install();
 }
