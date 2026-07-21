@@ -90,7 +90,7 @@ jobs:
             git -C _deploy remote add origin "${REMOTE}"
           fi
 
-          rsync -a --delete --exclude='.git/' _site/ _deploy/
+          rsync -a --checksum --delete --exclude='.git/' _site/ _deploy/
 
           git -C _deploy config user.name "hakodase-deploy"
           git -C _deploy config user.email "actions@users.noreply.github.com"
