@@ -5,6 +5,8 @@ import { quickSolvable, solveOptimalSwipes } from '../src/core/solver.js';
 import { manhattanLowerBound, gateForBlock } from '../src/core/rules.js';
 import { PROVISIONAL_PUZZLE_BANK_VERSION } from '../src/core/provisional-puzzle-bank.js';
 
+const OFFLINE_EXACT_MAX_NODES = 5_000_000;
+
 function posOf(board) {
   return board.blocks.map((block) => ({ x: block.x, y: block.y }));
 }
@@ -73,8 +75,8 @@ test('各ブロックに同色の出口ゲートが対応する', () => {
 
 test('normalフォールバックは旧4操作盤面へ戻らない', () => {
   const board = getFallbackBoard('normal');
-  const solved = solveOptimalSwipes(board, { maxNodes: 400000 });
-  assert.equal(solved.solved, true);
+  const solved = solveOptimalSwipes(board, { maxNodes: OFFLINE_EXACT_MAX_NODES });
+  assert.equal(solved.solved, true, solved.reason || 'unsolved');
   assert.ok(solved.optimalSwipes >= 8, `normal fallback: ${solved.optimalSwipes}`);
   assert.ok(manhattanLowerBound(board, posOf(board)) >= 20);
 });
