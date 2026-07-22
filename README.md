@@ -22,21 +22,59 @@ HAKODASE v2は段階的に実装しています。
 | 3・2・1・STARTと厳格時計 | 統合済み・自動Gate合格 |
 | プレイ画面のundo・リタイア・詰み | 統合済み・自動Gate合格 |
 | 正式結果画面・再挑戦・共有 | 統合済み・自動Gate合格 |
-| Phase 1・2統合ブラウザGate | 自動Gate合格・手動実機待ち |
+| Phase 1・2統合ブラウザGate | 自動Gate合格・手動実機継続中 |
+| 4操作盤面BLOCKER | Pull Request #14で暫定修正・レビュー待ち |
 | 公式問題集 | 未実装 |
 | Supabaseランキング | 未実装 |
 | 出荷レーン・シャッター | 未実装 |
-| 公開確認 | 未実施 |
 
-Pull Request #11のGitHub Actions Run #14で、Nodeテスト150件、`git diff --check`、320×568 WebKit、390×844 WebKit、1280×720 Chromiumの自動Gateが成功しました。
+Pull Request #11で、Node試験、`git diff --check`、320×568 WebKit、390×844 WebKit、1280×720 Chromiumの自動Gateを追加しました。
 
-自動WebKitの成功をiPhone実機確認済みとは扱いません。iPhone・iPad Safari、画面ロック、共有シート、ソフトウェアキーボード、safe areaなどの手動Gateが残っています。
+Codeberg Pages公開版のiPhone試遊で、旧normal生成器が4箱・最短4操作の盤面を作ることを確認しました。原因は、各箱を最初から対応出口と一直線へ配置する生成方式です。壁を増やすだけでは直らないため、Pull Request #14ではnormalを検証済み試作盤面バンクへ切り替えています。
 
-現在の「本日の出荷」は固定暫定seedによるプレビューです。検証済み公式問題と`puzzleId`が未実装のため、公式記録や端末内記録へ保存しません。ただし、将来の公式競技と同じ厳格時計を使い、カウントダウン中またはプレイ中にページが隠れた試行は無効にします。
+## 現在の盤面
 
-エンドレスだけが現行のseed付き盤面と端末内記録を利用します。練習は記録対象外です。
+### 本日の出荷
 
-詳しい現在地は[完成状況](docs/COMPLETION_STATUS_v2.md)、P2-06の結果は[統合ブラウザGate](docs/P2_06_BROWSER_GATE_v2.md)、完成までの工程は[完成計画](docs/COMPLETION_PLAN_v2.md)を参照してください。
+- 固定seedで同じ試作問題を表示
+- 厳格時計
+- ページ非表示で試行無効
+- 正式問題集とSupabaseが未実装のため記録対象外
+- 現在は厳密最短8〜12操作の試作盤面を使用
+
+### エンドレス
+
+- seedで検証済み試作盤面を決定論的に選択
+- 基礎盤面5件
+- 左右反転、上下反転、180度回転、色置換を使用
+- 初期状態から出口へ直行できる箱は0件
+- 厳密最短8〜12操作
+- 同じseedの再挑戦と新しい盤面
+- 端末内記録、同一seedの初回・ベスト
+- 公式総合ランキングへ混ぜない
+
+### 練習
+
+- 短い旧MVP互換盤面
+- 端末内・オンラインとも記録対象外
+- 正式チュートリアルはPhase 5で追加
+
+## 暫定盤面の制限
+
+現在の試作盤面バンクは、公開中の「4箱を4回動かすだけ」という破綻を止めるための暫定修正です。
+
+正式なPhase 3条件は未達です。
+
+```text
+盤面: 7×9
+箱: 8〜14個
+色: 3〜6色
+公式候補: 厳密最短20〜35操作
+1000件以上の候補検査
+人による試遊済み公式問題集
+```
+
+基礎盤面5件の反転や色置換を、正式な問題数として数えません。
 
 ## 画面の流れ
 
@@ -67,28 +105,6 @@ home
 
 結果共有はWeb Shareを優先し、技術的失敗時はClipboard、さらに失敗時は選択可能な共有文を表示します。共有をキャンセルまたは失敗しても結果画面は維持されます。
 
-## モード
-
-### 本日の出荷
-
-- 固定暫定問題
-- 厳格時計
-- ページ非表示で試行無効
-- 公式問題集とSupabaseが未実装のため記録対象外
-
-### エンドレス
-
-- seed付きランダム盤面
-- 同じseedの再挑戦と新しい盤面
-- 端末内記録、同一seedの初回・ベスト
-- 公式総合ランキングへ混ぜない
-
-### 練習
-
-- 固定された短い暫定問題
-- 端末内・オンラインとも記録対象外
-- 正式チュートリアルはPhase 5で追加
-
 ## プレイヤー名
 
 ```text
@@ -110,8 +126,6 @@ home
 - リタイアは確認後に確定し、記録しません。
 - 残り箱があり合法操作が0件の場合、戻す・やりなおし・リタイアを案内します。
 
-現行盤面は旧MVP生成です。v2公式条件`20 <= optimalSwipes <= 35`はPhase 3の検証済み問題集で実現します。
-
 ## 起動方法
 
 ゲームのローカル起動には追加パッケージは不要です。
@@ -126,11 +140,9 @@ npm run dev
 http://localhost:5173/
 ```
 
-ES Modulesを使うため、`index.html`をファイルとして直接開かずローカルサーバー経由で開いてください。
+ES Modulesを使うため、`index.html`をファイルとして直接開かず、ローカルサーバー経由で開いてください。
 
 ## Nodeテスト
-
-初回だけ開発依存を固定状態で導入します。
 
 ```bash
 npm ci
@@ -138,6 +150,8 @@ npm test
 ```
 
 Nodeテストは`test/*.test.js`だけを対象とし、Playwright specと混在させません。
+
+Pull Request #14のGitHub Actions Run #22では、既存試験を含むNode全156件が成功しました。試作基礎盤面5件は、開発時に現行の厳密ソルバーで8、8、9、10、12操作と再検証します。プレイ開始時にはソルバーを実行しません。
 
 ## ブラウザテスト
 
@@ -170,19 +184,24 @@ desktop-chromium
 - 本日の出荷のページ非表示無効化
 - console errorとpage error
 
-GitHub ActionsはNode試験出力、Playwright HTML report、失敗時のtrace・video・screenshot、各projectのホーム・結果スクリーンショットをartifactとして保存します。
+Pull Request #14のRun #22ではNode・Browserの両Gateが成功しています。ただし、自動WebKitの成功をiPhone実機確認済みとは扱いません。
 
-## P2-06で修正した主な統合不具合
+## Codeberg Pages
 
-- module scriptの評価順によってP2-03・04・05が接続されない場合があったため、`DOMContentLoaded`と`load`で安全に再試行するよう修正。
-- ブラウザ標準timer関数へ不正なreceiverが渡りカウントダウンが3で止まる場合があったため、receiver-neutralなclosureへ修正。
-- 結果から再挑戦した際に前回タイムがカウントダウンへ一瞬残ったため、遷移前にHUDを0へ初期化。
+GitHubの`main`更新時に、次だけをCodebergの`pages`ブランチへ自動配備します。
+
+```text
+index.html
+styles/
+src/
+```
+
+公開中のゲームは`main`へマージされた内容です。Pull Request上の変更は、マージされるまでCodebergへ出ません。
 
 ## ディレクトリ構成
 
 ```text
-.github/workflows/ci.yml
-playwright.config.js
+.github/workflows/
 index.html
 styles/
 src/
@@ -211,16 +230,12 @@ docs/
 - [性能契約](docs/PERFORMANCE_BUDGET_v2.md)
 - [オリジナリティ記録](docs/ORIGINALITY_v2.md)
 - [レビュー・チェックリスト](docs/REVIEW_CHECKLIST_v2.md)
-- [P2-01 状態機械設計](docs/P2_01_STATE_MACHINE_v2.md)
-- [P2-02 ホーム・名前・モード設計](docs/P2_02_HOME_NAME_MODES_v2.md)
-- [P2-03 カウントダウン・時計設計](docs/P2_03_COUNTDOWN_CLOCK_v2.md)
-- [P2-04 プレイ操作設計](docs/P2_04_PLAYING_CONTROLS_v2.md)
-- [P2-05 結果・共有設計](docs/P2_05_RESULT_SHARE_v2.md)
-- [P2-06 統合ブラウザGate](docs/P2_06_BROWSER_GATE_v2.md)
+- [完成状況](docs/COMPLETION_STATUS_v2.md)
+- [完成計画](docs/COMPLETION_PLAN_v2.md)
 
 ## 次の工程
 
-Pull Request #11統合後も、iPhone・iPadの手動実機Gateを完了するまでP3-01を開始しません。
+Pull Request #14をCodebergへ公開後、iPhoneで複数seedを再試遊し、パズル判断が生まれたかを確認します。そのBLOCKER解消後にP3-01「盤面データv2・版管理」を開始します。
 
 ## オリジナリティ
 
