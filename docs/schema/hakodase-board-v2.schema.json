@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hakodase:schema:board:2",
+  "title": "HAKODASE Board Data v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "rulesVersion",
+    "generatorVersion",
+    "puzzleId",
+    "boardHash",
+    "width",
+    "height",
+    "blocks",
+    "walls",
+    "gates",
+    "lanes",
+    "shutters",
+    "expectedOptimalSwipes"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "hakodase.board/2" },
+    "rulesVersion": { "const": "slide-exit/1" },
+    "generatorVersion": { "$ref": "#/$defs/version" },
+    "puzzleId": { "$ref": "#/$defs/id" },
+    "boardHash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "width": { "type": "integer", "minimum": 2, "maximum": 32 },
+    "height": { "type": "integer", "minimum": 2, "maximum": 32 },
+    "blocks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/block" }
+    },
+    "walls": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/cell" }
+    },
+    "gates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/gate" }
+    },
+    "lanes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/lane" }
+    },
+    "shutters": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/shutter" }
+    },
+    "expectedOptimalSwipes": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 999
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$"
+    },
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "integer" },
+        "y": { "type": "integer" }
+      }
+    },
+    "block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "x", "y", "w", "h", "color"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "x": { "type": "integer" },
+        "y": { "type": "integer" },
+        "w": { "const": 1 },
+        "h": { "const": 1 },
+        "color": { "type": "integer", "minimum": 0, "maximum": 5 }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "side", "line", "color"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "side": { "enum": ["left", "right", "top", "bottom"] },
+        "line": { "type": "integer", "minimum": 0 },
+        "color": { "type": "integer", "minimum": 0, "maximum": 5 }
+      }
+    },
+    "lane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "x", "y", "direction"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "x": { "type": "integer" },
+        "y": { "type": "integer" },
+        "direction": { "enum": ["up", "down", "left", "right"] }
+      }
+    },
+    "shutter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "x", "y", "axis", "period", "openPhases"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "x": { "type": "integer" },
+        "y": { "type": "integer" },
+        "axis": { "enum": ["horizontal", "vertical"] },
+        "period": { "type": "integer", "minimum": 2, "maximum": 60 },
+        "openPhases": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "integer", "minimum": 0 }
+        }
+      }
+    }
+  }
+}
