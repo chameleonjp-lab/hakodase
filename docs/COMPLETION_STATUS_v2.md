@@ -23,7 +23,7 @@
 | P2-06 | Phase 1・2統合ブラウザGate | 自動Gate合格・実機継続 | Pull Request #11 |
 | P2-06-B1 | 非自明盤面暫定修正 | 統合済み・暫定 | Pull Request #14。4操作固定を8〜12操作の試作盤面へ置換 |
 | P3-01 | 盤面データv2・版管理 | 統合済み・自動Gate合格 | Pull Request #15。JSON契約、意味検証、SHA-256 boardHash、Engine変換、official profile |
-| P3-02 | 厳密ソルバーv2 | 実装済み・CI/レビュー待ち | 同色交換圧縮BFS、解法再生、予算と停止理由、8/11/14箱fixtureを追加 |
+| P3-02 | 厳密ソルバーv2 | 実装済み・自動Gate合格・レビュー待ち | Pull Request #16。Node全182件と3環境Browser Gate成功。人間レビューが残る |
 | P3-03 | 生成器v2 | 未着手 | 8〜14箱、3〜6色、20〜35操作の候補生成 |
 | P3-04 | 品質指標・1000件検査 | 未着手 | 初手分岐、直行箱、壁利用率、誤手・詰み指標を出力 |
 | P3-05 | 試遊済み公式問題集 | 未着手 | 自動条件を通した候補を人間試遊し採否記録を残す |
@@ -118,11 +118,21 @@ aborted
 
 上限停止時は`optimalSwipes: null`とし、推定値を厳密値として保存しない。
 
-### 解法再生
+### 解法再生と正本ルール照合
 
 `verifyExactSolutionV2()`は、箱ID、開始位置、合法方向、移動マス、退場、最終クリアを再計算する。
 
 `validateExpectedOptimalSwipesV2()`は盤面データの記録値と実測厳密値の一致を返す。
+
+ソルバーのtyped-array規則が既存`rules.js`からずれないよう、返却解法を正本`applySlide()`でも再生する差分試験を追加した。
+
+照合対象:
+
+- 一方通行レーン。
+- 他箱による停止。
+- 壁による停止。
+- 搬出口退場。
+- 移動マス数と退場フラグ。
 
 ## P3-02容量fixture
 
@@ -142,14 +152,34 @@ aborted
 
 これらは容量と正しさのfixtureであり、20〜35操作の公式問題や面白さの証拠ではない。
 
-## P3-02で未完了の確認
+## P3-02自動Gate
 
-- GitHub Actionsの全Nodeテスト。
-- `git diff --check`。
-- 320×568 WebKit。
-- 390×844 WebKit。
-- 1280×720 Chromium。
+GitHub Actions Run #32:
+
+```text
+Node tests and diff check: success
+Browser gate: success
+```
+
+- Node全182件成功。
+- 失敗0、skip 0。
+- `git diff --check`成功。
+- P3-02本体テスト12件成功。
+- 既存`rules.js`との差分試験2件成功。
+- 8箱、11箱、14箱fixture成功。
+- 同一盤面で同じ解法列と探索件数を確認。
+- `maxNodes`、`maxDepth`、`timeout`、`AbortSignal`停止を確認。
+- 上限停止時に`optimalSwipes: null`を確認。
+- 改ざん解法の再生拒否を確認。
+- 320×568 WebKit成功。
+- 390×844 WebKit成功。
+- 1280×720 Chromium成功。
+- Browser evidence artifact保存成功。
+
+## P3-02で残る確認
+
 - 人間レビュー。
+- Pull Request #16の統合。
 
 ## 正式問題までの残作業
 
@@ -192,7 +222,7 @@ P3-02はその試作盤面を公式問題へ昇格させない。正式問題は
 
 ## 次の作業
 
-P3-02の自動Gateとレビュー完了後、最新`main`から開始する。
+Pull Request #16の人間レビュー・統合後、最新`main`から開始する。
 
 ```text
 P3-03: 8〜14箱・3〜6色・同色複数箱の生成器v2
