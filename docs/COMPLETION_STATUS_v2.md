@@ -13,102 +13,130 @@
 | ID | 作業 | 状態 | 根拠・残件 |
 | --- | --- | --- | --- |
 | Phase 0 | v2仕様契約 | 完了 | Pull Request #1で統合済み |
-| Phase 1 | 中核コードの正しさ | 自動Gate合格・実機待ち | Pull Request #2で統合済み。P2-06でNode・ブラウザ回帰を再検証 |
-| G-01 | Git基準整理 | 文書統合済み・設定確認待ち | Pull Request #4。正式PR baseは`main`。GitHub既定ブランチと保護設定確認が残る |
-| P2-01 | アプリ状態機械 | 統合済み・自動Gate合格 | Pull Request #5。状態遷移と`playId`を再検証 |
-| P2-02 | ホーム・名前・モード | 統合済み・自動Gate合格 | Pull Request #6。320×568、390×844、PCで主要導線を検証。実機キーボード確認が残る |
-| P2-03 | カウントダウン・公式時計 | 統合済み・自動Gate合格 | Pull Request #7。P2-06でbootstrap順序とtimer receiverを修正 |
-| P2-04 | プレイ画面・undo・リタイア・詰み | 統合済み・自動Gate合格 | Pull Request #8。実機操作確認が残る。#9は重複のためclose |
-| P2-05 | 結果・再挑戦・共有 | 統合済み・自動Gate合格 | Pull Request #10。結果、再挑戦、共有フォールバックをブラウザ検証 |
-| P2-06 | Phase 1・2統合ブラウザGate | 自動Gate合格・手動実機BLOCKER修正中 | Pull Request #11で自動Gate合格。iPhone実機で4操作盤面を確認し、Pull Request #14で修正中 |
-| P2-06-B1 | 非自明盤面暫定修正 | 実装済み・レビュー待ち | 初期直行箱0件、厳密最短8〜12操作の試作盤面5件。Node・Browser Gate成功 |
-| P3-01 | 盤面データv2・版管理 | 未着手 | #14公開後の実機再試遊でBLOCKER解消を確認してから開始 |
+| Phase 1 | 中核コードの正しさ | 自動Gate合格・実機待ち | Pull Request #2。P2-06でNode・ブラウザ回帰を再検証 |
+| G-01 | Git基準整理 | 文書統合済み・設定確認待ち | Pull Request #4。正式PR baseは`main`。既定ブランチと保護設定確認が残る |
+| P2-01 | アプリ状態機械 | 統合済み・自動Gate合格 | Pull Request #5 |
+| P2-02 | ホーム・名前・モード | 統合済み・自動Gate合格 | Pull Request #6。実機キーボード確認が残る |
+| P2-03 | カウントダウン・公式時計 | 統合済み・自動Gate合格 | Pull Request #7 |
+| P2-04 | プレイ画面・undo・リタイア・詰み | 統合済み・自動Gate合格 | Pull Request #8。実機操作確認が残る。#9は重複close |
+| P2-05 | 結果・再挑戦・共有 | 統合済み・自動Gate合格 | Pull Request #10 |
+| P2-06 | Phase 1・2統合ブラウザGate | 自動Gate合格・実機継続 | Pull Request #11。iPhone実機で生成器BLOCKERを検出 |
+| P2-06-B1 | 非自明盤面暫定修正 | 統合済み・暫定 | Pull Request #14。4操作固定を8〜12操作の試作盤面へ置換。正式Phase 3ではない |
+| P3-01 | 盤面データv2・版管理 | 実装済み・CI/レビュー待ち | JSON契約、意味検証、SHA-256 boardHash、Engine変換、公式profileを実装 |
+| P3-02 | 厳密ソルバー拡張 | 未着手 | P3-01統合後に開始。8〜14箱・同色複数箱の性能と正しさ |
+| P3-03 | 生成器v2 | 未着手 | 8〜14箱、3〜6色、20〜35操作の候補生成 |
+| P3-04 | 品質指標・1000件検査 | 未着手 | 初手分岐、直行箱、壁利用率、誤手・詰み指標を出力 |
+| P3-05 | 試遊済み公式問題集 | 未着手 | 自動条件を通した候補を人間試遊し採否記録を残す |
+| P3-06 | 本日の出荷 | 未着手 | 検証済み問題集から決定論的に選択 |
 
-## 手動実機Gateで見つかったBLOCKER
+## P3-01で追加した契約
 
-### 症状
-
-Codeberg Pages公開版のエンドレスをiPhone 17 Proで試遊したところ、標準盤面が4箱・最短4操作だった。
-
-各箱を対応出口の方向へ1回ずつ動かすだけでクリアでき、壁は解法の順序や退避を要求していなかった。
-
-### 原因
-
-旧MVP生成器は可解性を保証するため、各箱を対応出口から盤内へ一直線に逆挿入していた。
+### 盤面データ
 
 ```text
-4色
-= 4箱
-= 各箱1回で退場
-= 最短4操作
+schemaVersion: hakodase.board/2
+rulesVersion: slide-exit/1
+generatorVersion
+puzzleId
+boardHash: sha256:<64桁hex>
+width / height
+blocks
+walls
+gates
+lanes
+shutters
+expectedOptimalSwipes
 ```
 
-距離下界や壁数の条件はあったが、最短操作数の下限と箱同士の依存関係を検査していなかった。
-
-## Pull Request #14の暫定修正
-
-### 試作盤面バンク
-
-- 基礎盤面5件。
-- 7×9、4箱。
-- 厳密最短操作数: 8、8、9、10、12。
-- 初期状態から出口へ直行できる箱: 0件。
-- 現行の厳密ソルバーで開発時に再検証。
-- プレイ開始時にはソルバーを実行しない。
-
-### seedによる変化
-
-seedから次を決定論的に選ぶ。
-
-- 基礎盤面。
-- 左右反転。
-- 上下反転。
-- 180度回転。
-- 色置換。
-
-同じseedは同じ盤面と`puzzleId`を返す。
-
-### 自動Gate
-
-GitHub Actions Run #22:
+### official profile
 
 ```text
-Node tests and diff check: success
-Browser gate: success
+7×9
+8〜14箱
+3〜6色
+同色複数箱
+expectedOptimalSwipes 20〜35
 ```
 
-- Node全156件成功。
-- `git diff --check`成功。
-- 320×568 WebKit成功。
-- 390×844 WebKit成功。
-- 1280×720 Chromium成功。
-- 基礎盤面5件の厳密最短値が期待値と一致。
-- 初期直行箱0件を確認。
-- normalフォールバックも旧4操作盤面へ戻らない。
+profileは外形条件を検査する。厳密最短値との一致証明はP3-02で行う。
 
-## 暫定修正で未達の条件
+### boardHash
 
-Pull Request #14をPhase 3完了とは扱わない。
+盤面の挙動と初期状態を正規化し、同期SHA-256で識別する。
+
+含める:
 
 ```text
-箱8〜14個
-色3〜6色
-厳密最短20〜35操作
-1000件以上の候補検査
-正式なschemaVersion / rulesVersion / generatorVersion
-正規化boardHash
-正式puzzleId
-人による試遊済み公式問題集
+schemaVersion / rulesVersion
+width / height
+blocks / walls / gates / lanes / shutters
 ```
 
-基礎構造が5件しかないため、反転・色置換による見た目の変化を公式問題数として数えない。
+含めない:
+
+```text
+generatorVersion
+puzzleId
+expectedOptimalSwipes
+```
+
+配列順やJSON空白だけではhashを変えない。盤面座標、ID、色、出口、壁、レーン、シャッター、rulesVersionが変わればhashを変える。
+
+### 同色複数箱
+
+- 箱ごとに一意な文字列IDを持つ。
+- 同じ色の複数箱を許可する。
+- 使用色ごとに搬出口をちょうど1件必要とする。
+- 現行Engine形式への変換後も同色箱を保持する。
+
+### 将来ギミック
+
+- lanesは現行`oneway`へ変換可能。
+- shuttersは保存・検証だけ定義。
+- 現行Engineが未対応のshuttersを黙って無視せず変換時に拒否する。
+
+## P3-01のテスト
+
+局所再現環境:
+
+```text
+board data v2 / board hash: 12件成功
+```
+
+確認内容:
+
+- SHA-256既知ベクトル。
+- 正規化JSONの決定性。
+- 8箱・3色・同色複数箱fixture。
+- 配列順を変えても同じboardHash。
+- provenanceと最短値だけを変えても同じboardHash。
+- 座標変更で異なるboardHash。
+- 改ざんhashの拒否。
+- official profile条件。
+- 箱、壁、出口の重複拒否。
+- lanesのEngine変換。
+- shuttersの明示拒否。
+- JSON round-trip。
+
+リポジトリ全体のNode・Browser GateはPull Request作成後に確認する。
+
+## 4操作BLOCKERとの関係
+
+Pull Request #14は公開中の明白な破綻を止める暫定修正である。
+
+```text
+4箱
+厳密最短8〜12操作
+基礎盤面5件
+```
+
+P3-01はこの試作盤面を公式問題へ昇格させない。正式問題はP3-02〜P3-05を通過した8〜14箱・20〜35操作の盤面だけとする。
 
 ## 残る手動実機Gate
 
-- Pull Request #14をCodebergへ公開後、iPhone 17 Proで複数seedを試遊する。
-- 8〜12操作の過程に、退避、順序判断、箱同士の利用があるか確認する。
+- iPhone 17 Proで複数seedを試遊し、退避・順序判断・箱同士の利用を確認する。
 - undo、リタイア、詰み案内を実操作する。
-- iPhone SE級、iPhone 11 Pro、iPad Pro 2018も確認する。
+- iPhone SE級、iPhone 11 Pro、iPad Pro 2018を確認する。
 - ソフトウェアキーボード、画面ロック、アプリ切替、Web Share、safe area、画面回転を確認する。
 
 ## 設定画面で残る確認
@@ -120,7 +148,8 @@ Pull Request #14をPhase 3完了とは扱わない。
 
 ## 次の作業
 
-1. Pull Request #14をレビューして統合する。
-2. Codeberg Pages自動配備を確認する。
-3. iPhoneで複数seedを再試遊する。
-4. BLOCKER解消後、P3-01「盤面データv2・版管理」を開始する。
+P3-01のNode・Browser Gateとレビューを完了した後、最新`main`から開始する。
+
+```text
+P3-02: 8〜14箱・同色複数箱の厳密ソルバー拡張
+```
