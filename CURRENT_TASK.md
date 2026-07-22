@@ -1,134 +1,182 @@
-# CURRENT_TASK: P2-06 手動実機Gate 盤面BLOCKER修正
+# CURRENT_TASK: P3-01 盤面データv2・版管理
 
 ## 目的
 
-Codeberg Pages公開版をiPhone 17 Proで試遊した結果、エンドレスの標準盤面が4箱・最短4操作で終わり、壁や箱の順番を考えるパズルになっていないことを確認した。
-
-この問題をP2-06手動実機GateのBLOCKERとして扱い、最終Phase 3へ進む前に公開中の明白な破綻を止める。
+Phase 3の生成器、厳密ソルバー、品質指標、大量候補検査、公式問題集、ランキングが同じ盤面内容を扱えるよう、JSON保存可能な正式データ契約を固定する。
 
 ## 基準
 
 - 正式基準ブランチ: `main`
-- 基準コミット: `4de7dcd80a431b155017fcd984b6ebeda1e91191`
-- 作業ブランチ: `agent/hakodase-blocker-nontrivial-puzzles`
-- Pull Request: #14
+- 基準コミット: `b580415232c146531a10fd7537e76c5f37e6530a`
+- 作業ブランチ: `agent/hakodase-p3-01-board-data-v2`
 - Pull Request base: `main`
-
-## 実機で確認した症状
-
-```text
-モード: エンドレス
-箱数: 4
-表示最短: 4操作
-実際: 各箱を出口方向へ1回ずつ動かして4操作でクリア可能
-```
-
-壁は存在するが、箱の初期位置から対応出口までの直線を塞いでおらず、解法の順序・退避・回り込みを要求しない。
-
-## 根本原因
-
-旧MVP生成器は可解性を簡単に保証するため、各箱を対応する出口から盤内へ一直線に逆挿入していた。
-
-そのため、生成された箱は初期状態から自分の出口へ直行できる。標準難易度は4色・4箱なので、原理的に箱数と最短操作数がほぼ一致する。
-
-壁数や距離下界を増やしても、この構造は変わらない。
+- Pull Request: #15
 
 ## 今回の一目的
 
-> 公開中のnormal盤面を、初期直行箱0件・厳密最短8〜12操作の検証済み試作盤面へ置き換え、4操作で終わる構造を止める。
-
-## 実装
-
-### 試作盤面バンク
-
 ```text
-src/core/provisional-puzzle-bank.js
+盤面データv2、意味検証、正規化、boardHash、現行Engine変換を確定する。
 ```
 
-- 基礎盤面5件。
-- すべて7×9、4箱。
-- 厳密最短操作数: 8、8、9、10、12。
-- 初期状態から出口へ直行できる箱: 全件0。
-- 現行`solveOptimalSwipes()`で開発時に厳密再検証する。
+P3-01では盤面を生成せず、厳密ソルバーの大規模対応、1000件検査、公式問題集も実施しない。
 
-### seedによる変化
-
-同じseedでは同じ盤面を返す。
+## 実装対象
 
 ```text
-基礎盤面の選択
-左右反転
-上下反転
-180度回転
-色置換
+src/core/board-hash.js
+src/core/board-data-v2.js
+docs/schema/hakodase-board-v2.schema.json
+docs/P3_01_BOARD_DATA_V2.md
+docs/decisions/P3_01_BOARD_DATA_V2_DECISION.md
+test/board-hash.test.js
+test/board-data-v2.test.js
 ```
 
-反転と色置換はスライドルールと最短操作数を保つ。
+関連進捗文書も同じPull Requestで同期する。
 
-### ランタイム性能
+## 正式データ
 
-プレイ開始時にソルバーを動かさない。事前確認済みの`expectedOptimalSwipes`を使用する。
-
-### 表示
-
-ホーム画面へ次を明示する。
+必須フィールド:
 
 ```text
-試作問題
-厳密最短8〜12操作
-正式問題は準備中
+schemaVersion
+rulesVersion
+generatorVersion
+puzzleId
+boardHash
+width / height
+blocks
+walls
+gates
+lanes
+shutters
+expectedOptimalSwipes
 ```
+
+正式な版:
+
+```text
+schemaVersion: hakodase.board/2
+rulesVersion: slide-exit/1
+boardHash: sha256:<64桁hex>
+```
+
+## official profile
+
+次を検査する。
+
+```text
+盤面: 7×9
+箱: 8〜14個
+色: 3〜6色
+同色複数箱: 必須
+厳密最短記録: 20〜35操作
+```
+
+`expectedOptimalSwipes`が実際の厳密最短と一致することはP3-02で検査する。
+
+## boardHash
+
+SHA-256の対象:
+
+```text
+schemaVersion
+rulesVersion
+width / height
+blocks
+walls
+gates
+lanes
+shutters
+```
+
+対象外:
+
+```text
+generatorVersion
+puzzleId
+boardHash
+expectedOptimalSwipes
+```
+
+配列順、オブジェクトkey順、JSON空白だけでは変化させない。
+
+## 同色複数箱
+
+- 箱は一意な文字列`id`を持つ。
+- `color`は0〜5。
+- 同じ色の複数箱を許可する。
+- 使用色ごとに搬出口をちょうど1件必要とする。
+- 現行Engine形式へ変換しても同色箱を保持する。
+
+## レーンとシャッター
+
+- レーンは現行`oneway`へ変換する。
+- シャッターは保存・構造検査だけ定義する。
+- 現行Engineへ未接続のシャッターを黙って無視せず、変換時に例外とする。
 
 ## 自動検証
 
-GitHub Actions Run #22:
+GitHub Actions Run #27:
 
 ```text
 Node tests and diff check: success
 Browser gate: success
 ```
 
-確認項目:
+確認結果:
 
-- 既存試験を含むNode全156件。
-- 5基礎盤面の厳密最短値。
-- 初期直行箱0件。
-- 同じseedの再現性。
-- 80seedで20種類以上の問題ID。
-- normalフォールバックが旧4操作盤面へ戻らないこと。
-- 320×568 WebKit。
-- 390×844 WebKit。
-- 1280×720 Chromium。
+- Node全168件成功。
+- `git diff --check`成功。
+- SHA-256既知ベクトル成功。
+- board data v2の局所12件成功。
+- 320×568 WebKit成功。
+- 390×844 WebKit成功。
+- 1280×720 Chromium成功。
+- Browser evidence artifact保存成功。
 
-## 今回の制限
+P3-01追加検査:
 
-この修正はPhase 3完成ではない。
+- 正規化JSONの決定性。
+- 8箱・3色・同色複数箱のofficial fixture。
+- 配列順を変えても同じ`boardHash`。
+- 出自と最短値だけを変えても同じ`boardHash`。
+- 盤面座標を変えると異なる`boardHash`。
+- hash改ざんの拒否。
+- official profileの箱数・色数・20〜35操作。
+- 箱、壁、搬出口の重複拒否。
+- レーンの現行Engine変換。
+- 未対応シャッターの拒否。
+- JSON round-trip。
 
-未達の正式条件:
+## 完了条件
+
+- [x] 盤面データv2を実装した。
+- [x] JSON Schemaを追加した。
+- [x] `boardHash`を同期SHA-256で実装した。
+- [x] structural/official profileを分離した。
+- [x] 同色複数箱を受理した。
+- [x] 現行Engineとの変換境界を実装した。
+- [x] リポジトリ全Nodeテスト168件が成功した。
+- [x] Browser Gateが成功した。
+- [ ] 人間レビューが完了する。
+
+## 対象外
 
 ```text
-箱8〜14個
-色3〜6色
-厳密最短20〜35操作
-1000件以上の候補検査
-boardHashと正式puzzleId
-人による試遊済み公式問題集
+P3-02 厳密ソルバー拡張
+P3-03 生成器v2
+P3-04 品質指標と1000件検査
+P3-05 試遊済み公式問題集
+P3-06 本日の出荷
+Supabaseランキング
+出荷シャッターの実行規則
 ```
 
-基礎構造は5件だけであり、反転と色置換を含めても正式問題集の代替にはしない。
+## 次工程
 
-## 統合条件
+Pull Request #15の人間レビュー・統合後、最新`main`から次を開始する。
 
-- [x] Node Gate成功。
-- [x] Browser Gate成功。
-- [x] 基礎盤面5件の厳密最短値が一致。
-- [x] 初期直行箱0件。
-- [x] 4操作の旧normal盤面へ戻らない。
-- [ ] Pull Request #14の人間レビュー。
-- [ ] Codeberg公開後のiPhone実機再試遊。
-
-## 次に行う作業
-
-Pull Request #14を統合すると、Codeberg Pages自動公開ワークフローが新しい盤面を配備する。
-
-公開後にiPhoneで複数seedを試遊し、8〜12操作でも判断が生まれているかを確認する。BLOCKERが解消してからP3-01「盤面データv2・版管理」へ進む。
+```text
+P3-02: 8〜14箱・同色複数箱の厳密ソルバー
+```
