@@ -22,7 +22,7 @@
 | P2-05 | 結果・再挑戦・共有 | 統合済み・自動Gate合格 | Pull Request #10 |
 | P2-06 | Phase 1・2統合ブラウザGate | 自動Gate合格・実機継続 | Pull Request #11。iPhone実機で生成器BLOCKERを検出 |
 | P2-06-B1 | 非自明盤面暫定修正 | 統合済み・暫定 | Pull Request #14。4操作固定を8〜12操作の試作盤面へ置換。正式Phase 3ではない |
-| P3-01 | 盤面データv2・版管理 | 実装済み・CI/レビュー待ち | JSON契約、意味検証、SHA-256 boardHash、Engine変換、公式profileを実装 |
+| P3-01 | 盤面データv2・版管理 | 実装済み・自動Gate合格・レビュー待ち | Pull Request #15。JSON契約、意味検証、SHA-256 boardHash、Engine変換、公式profile。Run #27成功 |
 | P3-02 | 厳密ソルバー拡張 | 未着手 | P3-01統合後に開始。8〜14箱・同色複数箱の性能と正しさ |
 | P3-03 | 生成器v2 | 未着手 | 8〜14箱、3〜6色、20〜35操作の候補生成 |
 | P3-04 | 品質指標・1000件検査 | 未着手 | 初手分岐、直行箱、壁利用率、誤手・詰み指標を出力 |
@@ -95,17 +95,26 @@ expectedOptimalSwipes
 - shuttersは保存・検証だけ定義。
 - 現行Engineが未対応のshuttersを黙って無視せず変換時に拒否する。
 
-## P3-01のテスト
+## P3-01の自動検証
 
-局所再現環境:
+GitHub Actions Run #27:
 
 ```text
-board data v2 / board hash: 12件成功
+Node tests and diff check: success
+Browser gate: success
 ```
 
-確認内容:
+- Node全168件成功。
+- `git diff --check`成功。
+- SHA-256既知ベクトル成功。
+- board data v2 / board hashの局所12件成功。
+- 320×568 WebKit成功。
+- 390×844 WebKit成功。
+- 1280×720 Chromium成功。
+- Browser evidence artifact保存成功。
 
-- SHA-256既知ベクトル。
+P3-01の確認内容:
+
 - 正規化JSONの決定性。
 - 8箱・3色・同色複数箱fixture。
 - 配列順を変えても同じboardHash。
@@ -117,8 +126,6 @@ board data v2 / board hash: 12件成功
 - lanesのEngine変換。
 - shuttersの明示拒否。
 - JSON round-trip。
-
-リポジトリ全体のNode・Browser GateはPull Request作成後に確認する。
 
 ## 4操作BLOCKERとの関係
 
@@ -148,7 +155,7 @@ P3-01はこの試作盤面を公式問題へ昇格させない。正式問題は
 
 ## 次の作業
 
-P3-01のNode・Browser Gateとレビューを完了した後、最新`main`から開始する。
+Pull Request #15の人間レビュー・統合後、最新`main`から開始する。
 
 ```text
 P3-02: 8〜14箱・同色複数箱の厳密ソルバー拡張
