@@ -9,6 +9,8 @@ import {
 import { computeSlide, key } from '../src/core/rules.js';
 import { solveOptimalSwipes } from '../src/core/solver.js';
 
+const OFFLINE_EXACT_MAX_NODES = 5_000_000;
+
 function boardFromDefinition(definition) {
   return {
     width: 7,
@@ -40,8 +42,8 @@ test('試作盤面5件は厳密最短8〜12操作で、初期直行箱が0件', 
   for (const definition of PROVISIONAL_PUZZLES) {
     const board = boardFromDefinition(definition);
     assert.equal(initialDirectExitCount(board), 0, `${definition.id}: 初期直行箱`);
-    const solved = solveOptimalSwipes(board, { maxNodes: 400000 });
-    assert.equal(solved.solved, true, `${definition.id}: ${solved.reason || 'unsolved'}`);
+    const solved = solveOptimalSwipes(board, { maxNodes: OFFLINE_EXACT_MAX_NODES });
+    assert.equal(solved.solved, true, `${definition.id}: ${solved.reason || 'unsolved'} / nodes=${solved.nodes}`);
     assert.equal(solved.optimalSwipes, definition.expectedOptimalSwipes, `${definition.id}: 最短値`);
     assert.ok(solved.optimalSwipes >= 8 && solved.optimalSwipes <= 12, `${definition.id}: ${solved.optimalSwipes}`);
   }
