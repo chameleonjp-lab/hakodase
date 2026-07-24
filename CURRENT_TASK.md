@@ -1,123 +1,191 @@
-# CURRENT_TASK: P3-01 盤面データv2・版管理
+# CURRENT_TASK: P3-02 厳密ソルバーv2
 
 ## 目的
 
-Phase 3の生成器、厳密ソルバー、品質指標、大量候補検査、公式問題集、ランキングが同じ盤面内容を扱えるよう、JSON保存可能な正式データ契約を固定する。
+P3-01の盤面データv2を入力として、8〜14箱・3〜6色・同色複数箱を含む盤面の厳密最短操作数と再生可能な解法列を求める。
 
 ## 基準
 
 - 正式基準ブランチ: `main`
-- 基準コミット: `b580415232c146531a10fd7537e76c5f37e6530a`
-- 作業ブランチ: `agent/hakodase-p3-01-board-data-v2`
+- 基準コミット: `ad3e2b285aa2da6e42d425ff32ff7a768f0e8f8c`
+- 基準内容: Pull Request #15統合後のP3-01完了地点
+- 作業ブランチ: `agent/hakodase-p3-02-exact-solver`
 - Pull Request base: `main`
-- Pull Request: #15
+- Pull Request: #16
 
 ## 今回の一目的
 
 ```text
-盤面データv2、意味検証、正規化、boardHash、現行Engine変換を確定する。
+同色箱の交換対称性を圧縮した厳密幅優先探索を実装し、最短操作数、解法列、計測値、停止理由を確定する。
 ```
 
-P3-01では盤面を生成せず、厳密ソルバーの大規模対応、1000件検査、公式問題集も実施しない。
+P3-02では盤面生成、品質採点、1000件検査、公式問題集、公開ゲームへの接続を行わない。
 
 ## 実装対象
 
 ```text
-src/core/board-hash.js
-src/core/board-data-v2.js
-docs/schema/hakodase-board-v2.schema.json
-docs/P3_01_BOARD_DATA_V2.md
-docs/decisions/P3_01_BOARD_DATA_V2_DECISION.md
-test/board-hash.test.js
-test/board-data-v2.test.js
+src/core/exact-solver-v2.js
+test/exact-solver-v2.test.js
+test/exact-solver-v2-rules-parity.test.js
+docs/P3_02_EXACT_SOLVER_V2.md
+docs/decisions/P3_02_EXACT_SOLVER_V2_DECISION.md
+CURRENT_TASK.md
+docs/COMPLETION_STATUS_v2.md
 ```
 
-関連進捗文書も同じPull Requestで同期する。
-
-## 正式データ
-
-必須フィールド:
+## 探索契約
 
 ```text
-schemaVersion
-rulesVersion
-generatorVersion
-puzzleId
-boardHash
-width / height
-blocks
-walls
-gates
-lanes
-shutters
-expectedOptimalSwipes
+1スライド = 1コスト
+探索順 = 幅優先
+箱順 = P3-01正規化後のID順
+方向順 = up, down, left, right
 ```
 
-正式な版:
+最初に発見したクリア状態の深さを厳密最短操作数とする。
+
+## 同色箱の状態圧縮
+
+`slide-exit/1`では同色箱のIDが移動規則へ影響しない。
+
+状態keyは色ごとに箱位置を並べ替えて作成する。
 
 ```text
-schemaVersion: hakodase.board/2
-rulesVersion: slide-exit/1
-boardHash: sha256:<64桁hex>
+同色箱Aがセル10、Bがセル20
+同色箱Aがセル20、Bがセル10
+→ 同じ状態key
 ```
 
-## official profile
+探索queueには実際の箱ID配置を保持するため、返す解法列は`blockId`で再生できる。
 
-次を検査する。
+## 状態表現
+
+7×9盤面の63セルを1byteで表現する。
 
 ```text
-盤面: 7×9
-箱: 8〜14個
-色: 3〜6色
-同色複数箱: 必須
-厳密最短記録: 20〜35操作
+0〜62: 盤面セル
+255: 退場済み
 ```
 
-`expectedOptimalSwipes`が実際の厳密最短と一致することはP3-02で検査する。
-
-## boardHash
-
-SHA-256の対象:
+静的情報:
 
 ```text
-schemaVersion
-rulesVersion
-width / height
-blocks
-walls
-gates
-lanes
-shutters
+walls: Uint8Array
+lanes: Int8Array
+colors: Uint8Array
+occupancy: Int16Arrayを再利用
+gate lookup: color・出口方向別
 ```
 
-対象外:
+## 安全な下界
+
+残存箱ごとに次を加算する。
 
 ```text
-generatorVersion
-puzzleId
-boardHash
-expectedOptimalSwipes
+搬出口の行・列に一致: 最低1操作
+一致しない: 最低2操作
 ```
 
-配列順、オブジェクトkey順、JSON空白だけでは変化させない。
+`depth + lowerBound > maxDepth`だけを枝刈りする。この下界は実際の残り操作数を超えない。
 
-## 同色複数箱
+## 返却値
 
-- 箱は一意な文字列`id`を持つ。
-- `color`は0〜5。
-- 同じ色の複数箱を許可する。
-- 使用色ごとに搬出口をちょうど1件必要とする。
-- 現行Engine形式へ変換しても同色箱を保持する。
+```text
+solved
+exact
+optimalSwipes
+solution
+reason
+durationMs
+nodesExpanded
+movesGenerated
+uniqueStates
+frontierPeak
+lowerBound
+symmetryReduced
+```
 
-## レーンとシャッター
+各解法操作:
 
-- レーンは現行`oneway`へ変換する。
-- シャッターは保存・構造検査だけ定義する。
-- 現行Engineへ未接続のシャッターを黙って無視せず、変換時に例外とする。
+```text
+blockIndex
+blockId
+color
+from { x, y }
+direction
+steps
+exit
+```
+
+## 上限と停止理由
+
+既定値:
+
+```text
+maxNodes: 2,000,000
+maxStates: 2,000,000
+maxDepth: 40
+timeoutMs: 10,000
+timeCheckInterval: 1,024
+```
+
+停止理由:
+
+```text
+solved
+exhausted
+maxNodes
+maxStates
+maxDepth
+timeout
+aborted
+```
+
+上限停止時は次を厳守する。
+
+```text
+solved: false
+exact: false
+optimalSwipes: null
+```
+
+推定値を厳密最短として保存しない。
+
+## 解法再生と正本ルール照合
+
+`verifyExactSolutionV2()`で箱ID、開始位置、合法方向、移動マス、退場フラグ、最終全箱退場を検査する。
+
+さらに、ソルバーが返した解法を既存の正本`rules.js`の`applySlide()`でも再生する差分試験を追加した。
+
+確認対象:
+
+- 一方通行レーン。
+- 他箱による停止。
+- 壁による停止。
+- 搬出口からの退場。
+- 移動マス数と退場フラグ。
+
+## 容量fixture
+
+```text
+8箱 / 3色
+11箱 / 4色
+14箱 / 6色
+```
+
+すべて同色複数箱を含む。fixtureはソルバー容量確認用であり、公式問題や面白さの証拠ではない。
+
+局所再現結果:
+
+```text
+8箱: 厳密8操作 / 約48状態
+11箱: 厳密11操作 / 約192状態
+14箱: 厳密14操作 / 約1,296状態
+```
 
 ## 自動検証
 
-GitHub Actions Run #27:
+GitHub Actions Run #32:
 
 ```text
 Node tests and diff check: success
@@ -126,57 +194,50 @@ Browser gate: success
 
 確認結果:
 
-- Node全168件成功。
+- Node全182件成功。
+- 失敗0、skip 0。
 - `git diff --check`成功。
-- SHA-256既知ベクトル成功。
-- board data v2の局所12件成功。
+- P3-02本体テスト12件成功。
+- 正本`rules.js`との差分試験2件成功。
+- 8箱、11箱、14箱fixture成功。
+- 同一盤面の決定的解法を確認。
+- 上限停止時に`optimalSwipes: null`を確認。
 - 320×568 WebKit成功。
 - 390×844 WebKit成功。
 - 1280×720 Chromium成功。
 - Browser evidence artifact保存成功。
 
-P3-01追加検査:
-
-- 正規化JSONの決定性。
-- 8箱・3色・同色複数箱のofficial fixture。
-- 配列順を変えても同じ`boardHash`。
-- 出自と最短値だけを変えても同じ`boardHash`。
-- 盤面座標を変えると異なる`boardHash`。
-- hash改ざんの拒否。
-- official profileの箱数・色数・20〜35操作。
-- 箱、壁、搬出口の重複拒否。
-- レーンの現行Engine変換。
-- 未対応シャッターの拒否。
-- JSON round-trip。
-
 ## 完了条件
 
-- [x] 盤面データv2を実装した。
-- [x] JSON Schemaを追加した。
-- [x] `boardHash`を同期SHA-256で実装した。
-- [x] structural/official profileを分離した。
-- [x] 同色複数箱を受理した。
-- [x] 現行Engineとの変換境界を実装した。
-- [x] リポジトリ全Nodeテスト168件が成功した。
+- [x] 厳密幅優先探索を実装した。
+- [x] 同色箱の交換対称性を状態keyへ適用した。
+- [x] 決定論的な解法列を返す。
+- [x] 解法再生検証を実装した。
+- [x] 既存`rules.js`との差分試験を追加した。
+- [x] `expectedOptimalSwipes`との一致を報告する。
+- [x] ノード・状態・深さ・時間・中断上限を実装した。
+- [x] 上限停止時に最短値を返さない。
+- [x] 8箱・11箱・14箱fixtureを追加した。
+- [x] リポジトリ全Nodeテスト182件が成功した。
 - [x] Browser Gateが成功した。
 - [ ] 人間レビューが完了する。
 
 ## 対象外
 
 ```text
-P3-02 厳密ソルバー拡張
-P3-03 生成器v2
-P3-04 品質指標と1000件検査
+P3-03 8〜14箱・3〜6色・20〜35操作の生成器v2
+P3-04 初手分岐、直行箱、壁利用率、誤手・詰み指標
+1000件以上の候補検査
 P3-05 試遊済み公式問題集
 P3-06 本日の出荷
 Supabaseランキング
-出荷シャッターの実行規則
+出荷シャッターの探索
 ```
 
 ## 次工程
 
-Pull Request #15の人間レビュー・統合後、最新`main`から次を開始する。
+Pull Request #16の人間レビュー・統合後、最新`main`から開始する。
 
 ```text
-P3-02: 8〜14箱・同色複数箱の厳密ソルバー
+P3-03: 8〜14箱・3〜6色・同色複数箱の生成器v2
 ```

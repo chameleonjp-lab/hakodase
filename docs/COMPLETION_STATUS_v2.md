@@ -14,24 +14,24 @@
 | --- | --- | --- | --- |
 | Phase 0 | v2仕様契約 | 完了 | Pull Request #1で統合済み |
 | Phase 1 | 中核コードの正しさ | 自動Gate合格・実機待ち | Pull Request #2。P2-06でNode・ブラウザ回帰を再検証 |
-| G-01 | Git基準整理 | 文書統合済み・設定確認待ち | Pull Request #4。正式PR baseは`main`。既定ブランチと保護設定確認が残る |
+| G-01 | Git基準整理 | 文書統合済み・設定確認待ち | Pull Request #4。正式PR baseは`main` |
 | P2-01 | アプリ状態機械 | 統合済み・自動Gate合格 | Pull Request #5 |
 | P2-02 | ホーム・名前・モード | 統合済み・自動Gate合格 | Pull Request #6。実機キーボード確認が残る |
 | P2-03 | カウントダウン・公式時計 | 統合済み・自動Gate合格 | Pull Request #7 |
 | P2-04 | プレイ画面・undo・リタイア・詰み | 統合済み・自動Gate合格 | Pull Request #8。実機操作確認が残る。#9は重複close |
 | P2-05 | 結果・再挑戦・共有 | 統合済み・自動Gate合格 | Pull Request #10 |
-| P2-06 | Phase 1・2統合ブラウザGate | 自動Gate合格・実機継続 | Pull Request #11。iPhone実機で生成器BLOCKERを検出 |
-| P2-06-B1 | 非自明盤面暫定修正 | 統合済み・暫定 | Pull Request #14。4操作固定を8〜12操作の試作盤面へ置換。正式Phase 3ではない |
-| P3-01 | 盤面データv2・版管理 | 実装済み・自動Gate合格・レビュー待ち | Pull Request #15。JSON契約、意味検証、SHA-256 boardHash、Engine変換、公式profile。Run #27成功 |
-| P3-02 | 厳密ソルバー拡張 | 未着手 | P3-01統合後に開始。8〜14箱・同色複数箱の性能と正しさ |
+| P2-06 | Phase 1・2統合ブラウザGate | 自動Gate合格・実機継続 | Pull Request #11 |
+| P2-06-B1 | 非自明盤面暫定修正 | 統合済み・暫定 | Pull Request #14。4操作固定を8〜12操作の試作盤面へ置換 |
+| P3-01 | 盤面データv2・版管理 | 統合済み・自動Gate合格 | Pull Request #15。JSON契約、意味検証、SHA-256 boardHash、Engine変換、official profile |
+| P3-02 | 厳密ソルバーv2 | 実装済み・自動Gate合格・レビュー待ち | Pull Request #16。Node全182件と3環境Browser Gate成功。人間レビューが残る |
 | P3-03 | 生成器v2 | 未着手 | 8〜14箱、3〜6色、20〜35操作の候補生成 |
 | P3-04 | 品質指標・1000件検査 | 未着手 | 初手分岐、直行箱、壁利用率、誤手・詰み指標を出力 |
 | P3-05 | 試遊済み公式問題集 | 未着手 | 自動条件を通した候補を人間試遊し採否記録を残す |
 | P3-06 | 本日の出荷 | 未着手 | 検証済み問題集から決定論的に選択 |
 
-## P3-01で追加した契約
+## P3-01完了地点
 
-### 盤面データ
+正式データ:
 
 ```text
 schemaVersion: hakodase.board/2
@@ -40,15 +40,11 @@ generatorVersion
 puzzleId
 boardHash: sha256:<64桁hex>
 width / height
-blocks
-walls
-gates
-lanes
-shutters
+blocks / walls / gates / lanes / shutters
 expectedOptimalSwipes
 ```
 
-### official profile
+official profile:
 
 ```text
 7×9
@@ -58,105 +54,176 @@ expectedOptimalSwipes
 expectedOptimalSwipes 20〜35
 ```
 
-profileは外形条件を検査する。厳密最短値との一致証明はP3-02で行う。
+`boardHash`は盤面の挙動と初期状態を正規化したSHA-256で識別する。配列順、JSON空白、生成版、問題名、記録された最短値だけでは変化しない。
 
-### boardHash
+## P3-02で追加した厳密ソルバー
 
-盤面の挙動と初期状態を正規化し、同期SHA-256で識別する。
-
-含める:
+### 探索
 
 ```text
-schemaVersion / rulesVersion
-width / height
-blocks / walls / gates / lanes / shutters
+1スライド = 1コスト
+深さ順の幅優先探索
+箱順 = 正規化済みID順
+方向順 = up, down, left, right
 ```
 
-含めない:
+最初に発見したクリア状態の深さを厳密最短操作数とする。
+
+### 同色箱の交換圧縮
+
+同じ色の箱は現行`slide-exit/1`で個別能力を持たず、同じ搬出口を共有する。
+
+状態keyでは色ごとの位置を数値昇順へ並べ、同色箱のIDだけが交換された状態を重複として除外する。探索queueには実際の箱ID配置を残すため、返却解法は`blockId`で再生できる。
+
+### 状態表現
 
 ```text
-generatorVersion
-puzzleId
-expectedOptimalSwipes
+0〜62: 7×9盤面のセル
+255: 退場済み
 ```
 
-配列順やJSON空白だけではhashを変えない。盤面座標、ID、色、出口、壁、レーン、シャッター、rulesVersionが変わればhashを変える。
+箱位置を`Uint8Array`、壁を`Uint8Array`、レーンを`Int8Array`、占有表を再利用`Int16Array`で保持する。
 
-### 同色複数箱
+### 安全な下界
 
-- 箱ごとに一意な文字列IDを持つ。
-- 同じ色の複数箱を許可する。
-- 使用色ごとに搬出口をちょうど1件必要とする。
-- 現行Engine形式への変換後も同色箱を保持する。
+各残存箱について、搬出口の行・列に一致していれば最低1操作、不一致なら最低2操作として合計する。
 
-### 将来ギミック
+```text
+depth + lowerBound > maxDepth
+```
 
-- lanesは現行`oneway`へ変換可能。
-- shuttersは保存・検証だけ定義。
-- 現行Engineが未対応のshuttersを黙って無視せず変換時に拒否する。
+だけを枝刈りする。
 
-## P3-01の自動検証
+### 結果と停止理由
 
-GitHub Actions Run #27:
+返却値:
+
+```text
+solved / exact / optimalSwipes / solution / reason
+durationMs / nodesExpanded / movesGenerated
+uniqueStates / frontierPeak / lowerBound / symmetryReduced
+```
+
+停止理由:
+
+```text
+solved
+exhausted
+maxNodes
+maxStates
+maxDepth
+timeout
+aborted
+```
+
+上限停止時は`optimalSwipes: null`とし、推定値を厳密値として保存しない。
+
+### 解法再生と正本ルール照合
+
+`verifyExactSolutionV2()`は、箱ID、開始位置、合法方向、移動マス、退場、最終クリアを再計算する。
+
+`validateExpectedOptimalSwipesV2()`は盤面データの記録値と実測厳密値の一致を返す。
+
+ソルバーのtyped-array規則が既存`rules.js`からずれないよう、返却解法を正本`applySlide()`でも再生する差分試験を追加した。
+
+照合対象:
+
+- 一方通行レーン。
+- 他箱による停止。
+- 壁による停止。
+- 搬出口退場。
+- 移動マス数と退場フラグ。
+
+## P3-02容量fixture
+
+```text
+8箱 / 3色 / 同色複数箱
+11箱 / 4色 / 同色複数箱
+14箱 / 6色 / 同色複数箱
+```
+
+局所再現結果:
+
+```text
+8箱: 8操作 / 約48状態
+11箱: 11操作 / 約192状態
+14箱: 14操作 / 約1,296状態
+```
+
+これらは容量と正しさのfixtureであり、20〜35操作の公式問題や面白さの証拠ではない。
+
+## P3-02自動Gate
+
+GitHub Actions Run #32:
 
 ```text
 Node tests and diff check: success
 Browser gate: success
 ```
 
-- Node全168件成功。
+- Node全182件成功。
+- 失敗0、skip 0。
 - `git diff --check`成功。
-- SHA-256既知ベクトル成功。
-- board data v2 / board hashの局所12件成功。
+- P3-02本体テスト12件成功。
+- 既存`rules.js`との差分試験2件成功。
+- 8箱、11箱、14箱fixture成功。
+- 同一盤面で同じ解法列と探索件数を確認。
+- `maxNodes`、`maxDepth`、`timeout`、`AbortSignal`停止を確認。
+- 上限停止時に`optimalSwipes: null`を確認。
+- 改ざん解法の再生拒否を確認。
 - 320×568 WebKit成功。
 - 390×844 WebKit成功。
 - 1280×720 Chromium成功。
 - Browser evidence artifact保存成功。
 
-P3-01の確認内容:
+## P3-02で残る確認
 
-- 正規化JSONの決定性。
-- 8箱・3色・同色複数箱fixture。
-- 配列順を変えても同じboardHash。
-- provenanceと最短値だけを変えても同じboardHash。
-- 座標変更で異なるboardHash。
-- 改ざんhashの拒否。
-- official profile条件。
-- 箱、壁、出口の重複拒否。
-- lanesのEngine変換。
-- shuttersの明示拒否。
-- JSON round-trip。
+- 人間レビュー。
+- Pull Request #16の統合。
+
+## 正式問題までの残作業
+
+```text
+P3-03
+8〜14箱
+3〜6色
+同色複数箱
+厳密最短20〜35操作の候補生成
+
+P3-04
+初手分岐数
+直行可能箱数
+壁利用率
+誤手・詰み指標
+1000件以上の候補検査
+
+P3-05
+人間による試遊
+採用・不採用理由
+代表解法
+既知の詰み方
+正式問題集
+```
 
 ## 4操作BLOCKERとの関係
 
-Pull Request #14は公開中の明白な破綻を止める暫定修正である。
+Pull Request #14の4箱・8〜12操作盤面は暫定公開版である。
 
-```text
-4箱
-厳密最短8〜12操作
-基礎盤面5件
-```
+P3-02はその試作盤面を公式問題へ昇格させない。正式問題はP3-03〜P3-05を通過し、盤面データv2、厳密最短、品質指標、1000件検査、人間試遊の証拠を持つものだけとする。
 
-P3-01はこの試作盤面を公式問題へ昇格させない。正式問題はP3-02〜P3-05を通過した8〜14箱・20〜35操作の盤面だけとする。
+## 残る実機・設定確認
 
-## 残る手動実機Gate
-
-- iPhone 17 Proで複数seedを試遊し、退避・順序判断・箱同士の利用を確認する。
+- iPhone 17 Proで複数seedを試遊する。
 - undo、リタイア、詰み案内を実操作する。
 - iPhone SE級、iPhone 11 Pro、iPad Pro 2018を確認する。
 - ソフトウェアキーボード、画面ロック、アプリ切替、Web Share、safe area、画面回転を確認する。
-
-## 設定画面で残る確認
-
-1. GitHubの既定ブランチを`main`へ変更する。
-2. `main`へPull Request必須、force push禁止などの保護を設定する。
-
-各Pull Requestのbaseは明示的に`main`へ指定する。
+- GitHubの既定ブランチを`main`へ変更する。
+- `main`のforce push禁止とPull Request必須を確認する。
 
 ## 次の作業
 
-Pull Request #15の人間レビュー・統合後、最新`main`から開始する。
+Pull Request #16の人間レビュー・統合後、最新`main`から開始する。
 
 ```text
-P3-02: 8〜14箱・同色複数箱の厳密ソルバー拡張
+P3-03: 8〜14箱・3〜6色・同色複数箱の生成器v2
 ```
