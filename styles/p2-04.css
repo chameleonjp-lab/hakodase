@@ -1,0 +1,40 @@
+/* P2-04: プレイ中の残り箱、undo、リタイア、詰み表示。 */
+.play-substats {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 6px 2px 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.play-substats strong { color: var(--text); font-weight: 700; }
+.btn:disabled { opacity: 0.42; cursor: default; transform: none; }
+.btn-danger { border-color: rgba(251,113,133,0.65); background: rgba(251,113,133,0.12); color: #fecdd3; }
+.action-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: calc(16px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
+  background: rgba(5,8,12,0.78);
+  overscroll-behavior: contain;
+}
+.action-card {
+  width: min(100%, 360px);
+  max-height: 100%;
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: 0 18px 60px rgba(0,0,0,0.45);
+}
+.action-card h2 { margin: 0 0 8px; font-size: 18px; }
+.action-card p { margin: 0 0 16px; color: var(--muted); font-size: 13px; line-height: 1.65; }
+.stack-actions { display: grid; gap: 8px; }
+@media (max-width: 340px) {
+  .play-substats { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .action-card { padding: 14px 12px; }
+}

@@ -3,19 +3,29 @@
 export class RankingService {
   async saveScore(score) { throw new Error('not implemented'); }
   async listScores(filter) { throw new Error('not implemented'); }
+  async getScoreSummary(filter) { throw new Error('not implemented'); }
   async clearScores() { throw new Error('not implemented'); }
 }
 
 export const STORAGE_KEY = 'hakodase.ranking.v2';
 
-function validNumber(n) { return Number.isFinite(n) && n >= 0; }
+function validNumber(value) { return Number.isFinite(value) && value >= 0; }
+
 function normalize(score) {
   const timeMs = Math.round(Number(score.timeMs));
   const swipeCount = Math.round(Number(score.swipeCount));
   const distanceCells = Math.round(Number(score.distanceCells));
   if (!validNumber(timeMs) || !validNumber(swipeCount) || !validNumber(distanceCells)) return null;
   if (!score.difficulty || score.seed == null) return null;
-  return { seed: score.seed, difficulty: String(score.difficulty), timeMs, swipeCount, distanceCells, clearedAt: score.clearedAt || new Date().toISOString() };
+  return {
+    seed: score.seed,
+    difficulty: String(score.difficulty),
+    mode: score.mode ? String(score.mode) : 'legacy',
+    timeMs,
+    swipeCount,
+    distanceCells,
+    clearedAt: score.clearedAt || new Date().toISOString(),
+  };
 }
 
 function byRank(a, b) {
@@ -24,19 +34,97 @@ function byRank(a, b) {
   return String(a.clearedAt || '').localeCompare(String(b.clearedAt || ''));
 }
 
-export class LocalRankingService extends RankingService {
-  constructor(storage) { super(); this.storage = storage || (typeof localStorage !== 'undefined' ? localStorage : new MemoryStorage()); }
-  _read() {
-    try {
-      const raw = this.storage.getItem(STORAGE_KEY); if (!raw) return [];
-      const arr = JSON.parse(raw); if (!Array.isArray(arr)) return [];
-      return arr.map(normalize).filter(Boolean);
-    } catch { return []; }
-  }
-  _write(arr) { this.storage.setItem(STORAGE_KEY, JSON.stringify(arr)); }
-  async saveScore(score) { const entry = normalize(score); if (!entry) throw new Error('invalid score'); const all = this._read(); all.push(entry); all.sort(byRank); this._write(all); return entry; }
-  async listScores(filter = {}) { let all = this._read(); if (filter.difficulty) all = all.filter((s) => s.difficulty === filter.difficulty); if (filter.seed != null) all = all.filter((s) => String(s.seed) === String(filter.seed)); all.sort(byRank); if (filter.limit) all = all.slice(0, filter.limit); return all; }
-  async clearScores() { this.storage.removeItem(STORAGE_KEY); }
+function freezeScore(score) {
+  return score ? Object.freeze({ ...score }) : null;
 }
 
-export class MemoryStorage { constructor() { this.map = new Map(); } getItem(k) { return this.map.has(k) ? this.map.get(k) : null; } setItem(k, v) { this.map.set(k, String(v)); } removeItem(k) { this.map.delete(k); } }
+export function summarizeScores(scores) {
+  const values = Array.isArray(scores) ? scores.map(normalize).filter(Boolean) : [];
+  if (!values.length) return Object.freeze({ count: 0, first: null, best: null });
+
+  const first = [...values].sort((a, b) => {
+    const dateOrder = String(a.clearedAt || '').localeCompare(String(b.clearedAt || ''));
+    return dateOrder || byRank(a, b);
+  })[0];
+  const best = [...values].sort(byRank)[0];
+
+  return Object.freeze({
+    count: values.length,
+    first: freezeScore(first),
+    best: freezeScore(best),
+  });
+}
+
+function defaultStorage() {
+  try {
+    if (typeof localStorage !== 'undefined') return localStorage;
+  } catch (_) {
+    // 保存機能が制限されたブラウザではメモリ保存へ退避する。
+  }
+  return new MemoryStorage();
+}
+
+export class LocalRankingService extends RankingService {
+  constructor(storage = defaultStorage()) {
+    super();
+    this.storage = storage;
+  }
+
+  _read() {
+    try {
+      const raw = this.storage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      const values = JSON.parse(raw);
+      if (!Array.isArray(values)) return [];
+      return values.map(normalize).filter(Boolean);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  _write(values) {
+    this.storage.setItem(STORAGE_KEY, JSON.stringify(values));
+  }
+
+  async saveScore(score) {
+    const entry = normalize(score);
+    if (!entry) throw new Error('invalid score');
+    const all = this._read();
+    all.push(entry);
+    all.sort(byRank);
+    this._write(all);
+    return entry;
+  }
+
+  async listScores(filter = {}) {
+    let all = this._read();
+    if (filter.mode) all = all.filter((score) => score.mode === filter.mode);
+    if (filter.difficulty) all = all.filter((score) => score.difficulty === filter.difficulty);
+    if (filter.seed != null) all = all.filter((score) => String(score.seed) === String(filter.seed));
+    all.sort(byRank);
+    if (filter.limit) all = all.slice(0, filter.limit);
+    return all;
+  }
+
+  async getScoreSummary(filter = {}) {
+    const query = { ...filter };
+    delete query.limit;
+    return summarizeScores(await this.listScores(query));
+  }
+
+  async clearScores() {
+    try {
+      this.storage.removeItem(STORAGE_KEY);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
+export class MemoryStorage {
+  constructor() { this.map = new Map(); }
+  getItem(key) { return this.map.has(key) ? this.map.get(key) : null; }
+  setItem(key, value) { this.map.set(key, String(value)); }
+  removeItem(key) { this.map.delete(key); }
+}

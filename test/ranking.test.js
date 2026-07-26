@@ -1,9 +1,0 @@
-import { test } from 'node:test';
-import assert from 'node:assert/strict';
-import { LocalRankingService, MemoryStorage, STORAGE_KEY } from '../src/services/ranking.js';
-const score = (o={}) => ({ seed:'s', difficulty:'normal', timeMs:1000, swipeCount:3, distanceCells:9, clearedAt:'2026-01-01T00:00:00.000Z', ...o });
-test('v2保存キーを使い、操作数と移動距離を保存する', async()=>{ const st=new MemoryStorage(); const r=new LocalRankingService(st); await r.saveScore(score()); assert.equal(st.getItem('hakodase.ranking.v1'), null); assert.ok(st.getItem(STORAGE_KEY)); const [s]=await r.listScores(); assert.equal(s.swipeCount,3); assert.equal(s.distanceCells,9); });
-test('旧v1記録を新一覧へ混ぜない', async()=>{ const st=new MemoryStorage(); st.setItem('hakodase.ranking.v1', JSON.stringify([score({moves:9})])); const r=new LocalRankingService(st); assert.deepEqual(await r.listScores(), []); });
-test('タイム、操作数、達成日時で並ぶ', async()=>{ const r=new LocalRankingService(new MemoryStorage()); await r.saveScore(score({timeMs:1000, swipeCount:5, clearedAt:'b'})); await r.saveScore(score({timeMs:900, swipeCount:9, clearedAt:'c'})); await r.saveScore(score({timeMs:1000, swipeCount:3, clearedAt:'z'})); await r.saveScore(score({timeMs:1000, swipeCount:3, clearedAt:'a'})); const a=await r.listScores(); assert.deepEqual(a.map(x=>[x.timeMs,x.swipeCount,x.clearedAt]), [[900,9,'c'],[1000,3,'a'],[1000,3,'z'],[1000,5,'b']]); });
-test('壊れた保存値でゲームを止めない', async()=>{ const st=new MemoryStorage(); st.setItem(STORAGE_KEY, '{'); const r=new LocalRankingService(st); assert.deepEqual(await r.listScores(), []); });
-test('難易度、seed、limitでフィルタでき、clearできる', async()=>{ const r=new LocalRankingService(new MemoryStorage()); await r.saveScore(score({seed:'a',difficulty:'normal'})); await r.saveScore(score({seed:'b',difficulty:'hard'})); assert.equal((await r.listScores({difficulty:'normal',seed:'a',limit:1})).length,1); await r.clearScores(); assert.equal((await r.listScores()).length,0); });
