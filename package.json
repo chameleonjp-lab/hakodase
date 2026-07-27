@@ -9,7 +9,8 @@
     "test": "node --test test/*.test.js",
     "test:browser": "playwright test",
     "test:browser:report": "playwright show-report",
-    "audit:p3-04": "node scripts/p3-04-candidate-audit.mjs"
+    "audit:p3-04": "node scripts/p3-04-candidate-audit.mjs",
+    "build:p3-05-review-pack": "node scripts/p3-05-build-review-pack.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1"
