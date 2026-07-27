@@ -13,7 +13,7 @@ P3-03Rで自動条件を通過した66構造を、人が遊ぶ前の候補証拠
 - 基準内容: Pull Request #19統合後のP3-03R完了地点
 - 作業ブランチ: `agent/hakodase-p3-05-review-pack`
 - Pull Request base: `main`
-- Pull Request: 作成前
+- Pull Request: #20
 
 ## 今回の一目的
 
@@ -32,9 +32,10 @@ scripts/p3-05-build-review-pack.mjs
 test/p3-05-review-pack.test.js
 test/p3-05-playtest-record.test.js
 .github/workflows/p3-05-review-pack.yml
-src/data/p3-05-review-pack.json
+docs/review/P3_05_REVIEW_PACK.json
 docs/review/P3_05_PLAYTEST_RECORDS.json
 docs/review/P3_05_PLAYTEST_SHEET.csv
+docs/review/P3_05_REVIEW_PACK_SUMMARY.md
 docs/P3_05_REVIEW_PACK.md
 docs/decisions/P3_05_REVIEW_CONTRACT_DECISION.md
 package.json
@@ -42,7 +43,7 @@ CURRENT_TASK.md
 docs/COMPLETION_STATUS_v2.md
 ```
 
-固定候補ファイルと空の記録シートは、専用workflowのartifact生成後に同じDraft Pull Requestへ追加する。
+レビュー候補データはCodeberg公開対象の`src/`へ置かず、開発・試遊用の`docs/review/`へ固定する。
 
 ## 候補の固定方法
 
@@ -74,6 +75,13 @@ review-<templateId>-<boardHash先頭12桁>
 | `b13c5` | 5 |
 | `b14c6` | 5 |
 | 合計 | 66 |
+
+```text
+最短操作数: 20〜29
+一方通行床を含む候補: 5
+proofMode components: 61
+proofMode global: 5
+```
 
 ## 候補証拠
 
@@ -150,7 +158,7 @@ npm run build:p3-05-review-pack -- \
   --require-count 66
 ```
 
-出力:
+生成物:
 
 ```text
 review-pack.json
@@ -160,7 +168,47 @@ summary.md
 review-output.log
 ```
 
-## 自動検証
+リポジトリ正本:
+
+```text
+docs/review/P3_05_REVIEW_PACK.json
+docs/review/P3_05_PLAYTEST_RECORDS.json
+docs/review/P3_05_PLAYTEST_SHEET.csv
+docs/review/P3_05_REVIEW_PACK_SUMMARY.md
+```
+
+候補パックJSONは機械読取用の1行JSONとして保存し、盤面内容は省略しないまま差分行数を抑える。
+
+## 自動検証結果
+
+P3-05 Review Pack workflow:
+
+```text
+Run: 30266443413
+Build 66-candidate review pack: success
+```
+
+Artifact:
+
+```text
+name: hakodase-p3-05-review-pack-1
+id: 8652982976
+digest: sha256:42704e877a107cf9618151c6a0a432659a75bc2256baaea16ef4cf25623aec69
+```
+
+通常CI:
+
+```text
+Run: 30266443573
+Node tests and diff check: success
+Browser gate: success
+Node tests: 207
+pass: 207
+fail: 0
+skipped: 0
+```
+
+確認した内容:
 
 - 66候補を生成する。
 - profile配分が`12 / 12 / 12 / 12 / 8 / 5 / 5`である。
@@ -171,12 +219,7 @@ review-output.log
 - 同じ条件で同じ候補パックを返す。
 - 証拠改ざんを検出する。
 - 手動記録の候補不一致と不正値を検出する。
-
-専用workflow:
-
-```text
-.github/workflows/p3-05-review-pack.yml
-```
+- WebKit 320×568、WebKit 390×844、Chromium 1280×720を通過する。
 
 ## 完了条件
 
@@ -185,11 +228,11 @@ review-output.log
 - [x] 手動試遊記録の契約を固定した。
 - [x] JSON、CSV、Markdown生成処理を実装した。
 - [x] 専用GitHub Actionsを追加した。
-- [ ] Node Gateが成功する。
-- [ ] Browser Gateが成功する。
-- [ ] Review Pack workflowが成功する。
-- [ ] 正本候補データをリポジトリへ固定する。
-- [ ] 空の手動記録JSONとCSVをリポジトリへ固定する。
+- [x] Node Gateが成功した。
+- [x] Browser Gateが成功した。
+- [x] Review Pack workflowが成功した。
+- [x] 正本候補データをリポジトリへ固定した。
+- [x] 空の手動記録JSONとCSVをリポジトリへ固定した。
 - [ ] 人間レビューが完了する。
 
 ## 対象外
@@ -205,7 +248,7 @@ Codeberg公開内容の変更
 
 ## 次工程
 
-P3-05A統合後:
+Pull Request #20のレビュー・統合後:
 
 ```text
 P3-05B: 固定候補を実機で試遊するレビュー導線
