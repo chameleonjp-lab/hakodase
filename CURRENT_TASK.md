@@ -1,248 +1,201 @@
-# CURRENT_TASK: P3-04 品質指標と1001件候補監査
+# CURRENT_TASK: P3-03R 生成器v3補修
 
 ## 目的
 
-P3-03生成器が返す8〜14箱・3〜6色・厳密最短20〜35操作の候補を、最短操作数だけで公式問題候補へ進めない。
+P3-04の1001件監査で確認した次のBLOCKERを解消する。
 
-初手分岐、初期直行箱、壁利用、誤手・即時詰み、反復、色・方向偏り、重複を数値化し、1001件の再現可能な監査証拠を残す。
+```text
+初期直行箱: 572 / 1001件
+hard rule通過後の一意structureHash: 3件
+```
 
 ## 基準
 
 - 正式基準ブランチ: `main`
-- 基準コミット: `f2367c37851b6a956844d06d40bcec497838aac6`
-- 基準内容: Pull Request #17統合後のP3-03完了地点
-- 作業ブランチ: `agent/hakodase-p3-04-quality-audit`
+- 基準コミット: `f5695b08863ba8c3319b9fb3a5c93f9c7e1aa04f`
+- 基準内容: Pull Request #18統合後のP3-04完了地点
+- 作業ブランチ: `agent/hakodase-p3-03r-generator-v3`
 - Pull Request base: `main`
-- Pull Request: #18
-- 監査対象head: `8bac149a2f1af133e8836d0a768e01efb0f71674`
+- Pull Request: #19
+- 実装head: `02f63ff31ab925d7c5180cdab5a243973687bfaa`
 
 ## 今回の一目的
 
 ```text
-P3-03候補の品質指標と構造重複を実装し、1001件監査をGitHub Actionsで完走して結果を固定する。
+全profileの初期直行箱を0にし、66件の独立構造を持つ生成器v3を実装し、1001件再監査へ合格する。
 ```
 
-P3-04では人間試遊、公式問題集、公開ゲームへの接続、Supabaseランキングを実装しない。
+P3-05の人間試遊、公式問題集、公開ゲームへの接続、Supabaseランキングは今回実施しない。
+
+## 生成版
+
+```text
+旧: route-scaffold/2.0.0
+新: route-catalog/3.0.0
+```
 
 ## 実装対象
 
 ```text
-src/core/quality-metrics-v2.js
+src/core/generator-v3-catalog.js
+src/core/generator-v3-proof.js
+src/core/generator-v2.js
 src/core/candidate-audit-v2.js
 scripts/p3-04-candidate-audit.mjs
-test/quality-metrics-v2.test.js
+test/generator-v3-catalog.test.js
 test/candidate-audit-v2.test.js
 .github/workflows/p3-04-candidate-audit.yml
-docs/P3_04_QUALITY_AUDIT_V2.md
-docs/decisions/P3_04_QUALITY_AUDIT_V2_DECISION.md
-docs/decisions/P3_04_AUDIT_RESULT_DECISION.md
-docs/reports/P3_04_AUDIT_1001_SUMMARY.md
-package.json
-.gitignore
+docs/P3_03R_GENERATOR_V3.md
+docs/decisions/P3_03R_GENERATOR_V3_DECISION.md
+docs/reports/P3_03R_AUDIT_1001_SUMMARY.md
 CURRENT_TASK.md
 docs/COMPLETION_STATUS_v2.md
 ```
 
-## 品質指標
+一時的なpayloadファイルと適用workflowはすべて削除済みである。
+
+## 基礎構造
+
+| profile | 箱 | 色 | 最短 | 構造数 |
+| --- | ---: | ---: | ---: | ---: |
+| `b08c3` | 8 | 3 | 20 | 12 |
+| `b09c3` | 9 | 3 | 21 | 12 |
+| `b10c4` | 10 | 4 | 24 | 12 |
+| `b11c4` | 11 | 4 | 25 | 12 |
+| `b12c5` | 12 | 5 | 28 | 8 |
+| `b13c5` | 13 | 5 | 29 | 5 |
+| `b14c6` | 14 | 6 | 28 | 5 |
 
 ```text
-initialLegalActionCount
-initialMovableBlockCount
-initialDirectExitActionCount
-initialDirectExitBlockCount
-initialOccupancyRate
-branchingByStep
-solutionDecisionStepRate
-solutionForcedStepRate
-offRouteAlternativeCount
-immediateDeadEndAlternativeRate
-wallUtilizationRate
-sameBlockRepeatRate
-maxSameBlockRun
-dominantDirectionRate
-dominantColorRate
+合計構造: 66
+全profile: 5構造以上
 ```
 
-誤手・詰み指標は、代表手以外を1手だけ適用し、直後に合法手0件となる割合である。完全な詰み率とは扱わない。
+## 厳密証明
 
-## 重複識別
+61構造は経路間に重複・隣接がなく、独立成分ごとにP3-02で厳密証明する。
 
-### `boardHash`
-
-盤面データv2の正式内容識別子。
-
-### `structureHash`
-
-監査用の補助識別子。次を正規化する。
+`b14c6`の5構造は経路間に隣接があるため、盤面全体をP3-02で探索する。
 
 ```text
-箱IDと搬出口IDを除外
-搬出口位置順で色番号を振り直す
-同色箱を座標順へ並べる
-identity / mirrorX / mirrorY / rotate180を同一視
+proofMode: components | global
 ```
 
-ランキングや公開問題IDには使用しない。
-
-## 1001件監査
-
-GitHub Actions Run:
+`b14c6`全体探索:
 
 ```text
-30236109244
+optimalSwipes: 28
+nodesExpanded: 539,959
+```
+
+反転と色置換後は、解法の座標、方向、色を同じ変換で写像し、変換後盤面で再生する。
+
+## 1001件再監査
+
+GitHub Actions audit run:
+
+```text
+30262286810
 ```
 
 Artifact:
 
 ```text
-hakodase-p3-04-audit-1
-ID: 8642009680
-digest: sha256:e4e8693941557e1aacea173d0b9b26bf6e74b73ba06503c4f4bdad8c4859ffb9
+name: hakodase-p3-03r-audit-1
+id: 8651376790
+digest: sha256:a055bd834fa7cf41e6775c6c1c18e269797d4979e53798d40957bb94801e40ea
 ```
 
-実行結果:
+結果:
 
 ```text
-1001 candidate quality audit: success
 requested: 1001
 inspected: 1001
 generated: 1001
-failed: 0
-durationMs: 1,431,425
-```
-
-全体集計:
-
-```text
-candidate: 429
+generation failures: 0
+candidate: 1001
 review: 0
-reject: 572
-unique boardHash: 656
-unique structureHash: 27
-boardHash unique ratio: 65.53%
-structure unique ratio: 2.70%
+reject: 0
+initial direct exit blocks: 0
+unique boardHash: 912
+eligible unique structureHash: 66
+optimal swipes: 20〜29
+acceptance.passed: true
 ```
 
-## 発見したBLOCKER
-
-### 1. 初期直行箱
-
-572件が`initial-direct-exit`でhard rejectになった。
+profile別の一意構造:
 
 ```text
-b09c3: 初期直行箱1個 / 全143件
-b11c4: 初期直行箱1個 / 全143件
-b13c5: 初期直行箱1個 / 全143件
-b14c6: 初期直行箱2個 / 全143件
+b08c3: 12
+b09c3: 12
+b10c4: 12
+b11c4: 12
+b12c5: 8
+b13c5: 5
+b14c6: 5
 ```
 
-seedの偶発不良ではなくprofile構造の問題である。
+## 自動Gate
 
-### 2. 構造の種類不足
-
-hard ruleを通過した429件に限定すると、一意`structureHash`は3件だけだった。
+GitHub Actions CI run:
 
 ```text
-b08c3: 143件 → 1構造
-b10c4: 143件 → 1構造
-b12c5: 143件 → 1構造
+30262286867
 ```
 
-色置換、箱ID、反転で`boardHash`は増えているが、遊び方の基礎構造は増えていない。
-
-## その他の監査値
-
-```text
-初手合法操作 平均: 4.286
-判断手率 平均: 90.85%
-壁利用率 平均: 16.77%
-即時詰み代替率 平均: 0.00%
-同箱連続率 平均: 35.78%
-最大方向偏り 平均: 38.85%
-最大色偏り 平均: 45.52%
-ソルバーノード 平均: 106,487.857
-ソルバー時間 平均: 1,427.558ms
-```
-
-即時詰み0%は、数手後の詰みがないことを意味しない。
-
-## 最終自動Gate
-
-GitHub Actions Run `30237792287`:
+結果:
 
 ```text
 Node tests and diff check: success
 Browser gate: success
-Node tests: 194
-pass: 194
+Node tests: 199
+pass: 199
 fail: 0
 skipped: 0
 ```
 
-文書だけの後続同期では、専用1001件監査を再計算しない判定を追加した。監査ランタイムの対象ファイルが変わった時だけ再実行する。
-
-## 正本報告
+ブラウザ対象:
 
 ```text
-docs/reports/P3_04_AUDIT_1001_SUMMARY.md
-docs/decisions/P3_04_AUDIT_RESULT_DECISION.md
+WebKit 320×568
+WebKit 390×844
+Chromium 1280×720
 ```
 
-## 判定
+## 受け入れ条件
 
-```text
-P3-04監査処理: 合格
-P3-03候補品質: 不合格
-P3-05への移行: 禁止
-次工程: P3-03R
-```
-
-## P3-03R暫定条件
-
-```text
-1001件生成完走
-全profileで初期直行箱0
-hard rule通過候補の一意structureHash 60件以上
-各profileで一意structureHash 5件以上
-全件厳密最短20〜35操作
-同一seedの決定性維持
-未検証フォールバック禁止
-```
-
-## 完了条件
-
-- [x] 初手分岐と初期直行箱を計測した。
-- [x] 代表解法上の分岐を計測した。
-- [x] 即時詰み代替率を計測した。
-- [x] 壁利用率を計測した。
-- [x] 反復、色、方向偏りを計測した。
-- [x] `structureHash`を実装した。
-- [x] 1001件監査CLIを実装した。
-- [x] 専用GitHub Actionsを実装した。
+- [x] 1001件を検査した。
+- [x] 生成失敗0件。
+- [x] hard reject 0件。
+- [x] 全profileで初期直行箱0件。
+- [x] hard rule通過後の一意構造60件以上。実測66件。
+- [x] 各profileで一意構造5件以上。
+- [x] 全件の厳密最短が20〜35操作。実測20〜29操作。
+- [x] 同一seedの決定性を維持した。
+- [x] 未検証フォールバックを追加していない。
 - [x] Node・Browser Gateが成功した。
-- [x] 1001件監査jobが成功した。
-- [x] 監査summaryをGitHub文書へ固定した。
-- [x] P3-03補修が必要と判断した。
-- [x] 最終文書同期後のNode・Browser Gateが成功した。
 - [ ] 人間レビューが完了する。
 
-## 対象外
+## 正本文書
 
 ```text
-P3-03R生成器補修の実装
-P3-05 人間試遊と公式問題集
-P3-06 本日の出荷
-Supabaseランキング
-Codeberg公開内容の変更
-公開ゲームでの実行時ソルバー
-出荷シャッター
-Three.js / WebGL
+docs/P3_03R_GENERATOR_V3.md
+docs/decisions/P3_03R_GENERATOR_V3_DECISION.md
+docs/reports/P3_03R_AUDIT_1001_SUMMARY.md
 ```
+
+## 公開版との関係
+
+Codeberg公開版、現行`generator.js`、本日の出荷、公式ランキングは変更していない。
+
+生成器v3と厳密ソルバーは開発時だけ使用する。公開ブラウザで1001件監査や厳密探索を実行しない。
 
 ## 次工程
 
-Pull Request #18のレビュー・統合後、最新`main`から開始する。
+Pull Request #19の人間レビュー・統合後、最新`main`から開始する。
 
 ```text
-P3-03R: 生成器v2補修
+P3-05: 人間試遊と公式問題集
 ```
+
+66構造を母集団として試遊し、30問以上の正式問題集を目標に採否理由を記録する。
