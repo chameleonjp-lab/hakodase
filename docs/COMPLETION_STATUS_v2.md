@@ -25,7 +25,7 @@
 | P3-03 | 旧生成器v2 | 統合済み・品質不合格 | Pull Request #17。P3-04で初期直行・構造不足を確認 |
 | P3-04 | 品質指標・1001件監査 | 統合済み | Pull Request #18。旧生成器のBLOCKERを数値化 |
 | P3-03R | 生成器v3補修 | 統合済み・自動Gate合格 | Pull Request #19。66構造、直行箱0、1001件再監査合格 |
-| P3-05A | 試遊候補パック・評価契約 | 実装中 | 66候補の固定証拠、手動試遊JSON/CSV、専用workflow |
+| P3-05A | 試遊候補パック・評価契約 | 自動Gate合格・レビュー待ち | Pull Request #20。66候補と空の試遊記録JSON/CSVを固定 |
 | P3-05B | 試遊レビュー導線 | 未着手 | 固定候補を実機で順番に遊ぶ導線 |
 | P3-05C | 試遊済み公式問題集 | 未着手 | 30問以上を目標に採否と正式IDを確定 |
 | P3-06 | 本日の出荷 | 未着手 | 試遊済み問題集から決定論的に選択する |
@@ -81,7 +81,7 @@ docs/decisions/P3_03R_GENERATOR_V3_DECISION.md
 docs/reports/P3_03R_AUDIT_1001_SUMMARY.md
 ```
 
-## P3-05A 実装中の内容
+## P3-05A 完了内容
 
 ### 候補固定
 
@@ -98,6 +98,22 @@ review-<templateId>-<boardHash先頭12桁>
 ```
 
 盤面内容が変わった場合、古い試遊評価を使い回さない。
+
+### 候補数と証明方式
+
+```text
+candidateCount: 66
+optimalSwipes: 20〜29
+usesLanes: 5
+proofMode components: 61
+proofMode global: 5
+```
+
+profile配分:
+
+```text
+12 / 12 / 12 / 12 / 8 / 5 / 5
+```
 
 ### 候補証拠
 
@@ -158,43 +174,66 @@ reject
 revise
 ```
 
-`accept`完了には、1回以上のクリアと全評価項目、採用理由が必要である。
+`accept`完了には、1回以上のクリア、全評価項目、採用理由が必要である。
 
-### 生成物
-
-```text
-review-pack.json
-playtest-records.json
-playtest-sheet.csv
-summary.md
-review-output.log
-```
-
-生成コマンド:
-
-```bash
-npm run build:p3-05-review-pack -- \
-  --out-dir review-output/p3-05 \
-  --require-count 66
-```
-
-専用workflow:
+### 正本ファイル
 
 ```text
-.github/workflows/p3-05-review-pack.yml
+docs/review/P3_05_REVIEW_PACK.json
+docs/review/P3_05_PLAYTEST_RECORDS.json
+docs/review/P3_05_PLAYTEST_SHEET.csv
+docs/review/P3_05_REVIEW_PACK_SUMMARY.md
 ```
 
-## P3-05A Gate
+候補パックは公開対象の`src/`へ置かず、開発・試遊用の`docs/review/`へ固定した。
 
-- 66候補を生成する。
-- profile配分を維持する。
-- `reviewId`、`templateId`、`puzzleId`、`boardHash`、`structureHash`を重複させない。
-- 全候補で厳密証明、20〜35操作、初期直行箱0を確認する。
-- 同じ条件で同じ候補パックを再生成する。
-- 候補hash改ざんを検出する。
-- 手動試遊記録の候補不一致と不正値を検出する。
-- Node Gate、Browser Gate、Review Pack workflowを通す。
-- 生成した正本候補JSONと空の記録JSON/CSVを同じPull Requestへ固定する。
+### Review Pack workflow
+
+```text
+Run: 30266443413
+Build 66-candidate review pack: success
+```
+
+Artifact:
+
+```text
+name: hakodase-p3-05-review-pack-1
+id: 8652982976
+digest: sha256:42704e877a107cf9618151c6a0a432659a75bc2256baaea16ef4cf25623aec69
+```
+
+### Node・Browser Gate
+
+```text
+Run: 30266443573
+Node tests and diff check: success
+Browser gate: success
+Node tests: 207
+pass: 207
+fail: 0
+skipped: 0
+```
+
+ブラウザ対象:
+
+```text
+WebKit 320×568
+WebKit 390×844
+Chromium 1280×720
+```
+
+### P3-05A Gate判定
+
+- [x] 66候補を生成した。
+- [x] profile配分を維持した。
+- [x] `reviewId`、`templateId`、`puzzleId`、`boardHash`、`structureHash`の重複0。
+- [x] 全候補で厳密証明、20〜35操作、初期直行箱0を確認した。
+- [x] 同じ条件で同じ候補パックを再生成した。
+- [x] 候補hash改ざんを検出した。
+- [x] 手動試遊記録の候補不一致と不正値を検出した。
+- [x] Node Gate、Browser Gate、Review Pack workflowが成功した。
+- [x] 正本候補JSONと空の記録JSON/CSVを同じPull Requestへ固定した。
+- [ ] 人間レビューが完了する。
 
 ## P3-05Aで未実施
 
@@ -217,7 +256,7 @@ P3-05Aは公開中の`generator.js`、本日の出荷、エンドレス、公式
 
 ## 次の作業
 
-P3-05A統合後:
+Pull Request #20のレビュー・統合後:
 
 ```text
 P3-05B: 固定候補を実機で試遊するレビュー導線
