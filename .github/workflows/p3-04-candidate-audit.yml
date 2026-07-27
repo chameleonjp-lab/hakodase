@@ -1,0 +1,72 @@
+name: Hakodase P3-04 Candidate Audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/core/quality-metrics-v2.js'
+      - 'src/core/candidate-audit-v2.js'
+      - 'src/core/generator-v2.js'
+      - 'src/core/exact-solver-v2.js'
+      - 'scripts/p3-04-candidate-audit.mjs'
+      - 'test/quality-metrics-v2.test.js'
+      - 'test/candidate-audit-v2.test.js'
+      - '.github/workflows/p3-04-candidate-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hakodase-p3-04-audit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  candidate-audit:
+    name: 1001 candidate quality audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run 1001 candidate audit
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run audit:p3-04 -- \
+            --count 1001 \
+            --seed-prefix p3-04-audit-v1 \
+            --out-dir audit-output/p3-04 \
+            2>&1 | tee audit-output.log
+
+      - name: Add summary to workflow
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f audit-output/p3-04/summary.md ]]; then
+            cat audit-output/p3-04/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload candidate audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hakodase-p3-04-audit-${{ github.run_attempt }}
+          path: |
+            audit-output.log
+            audit-output/p3-04/audit.json
+            audit-output/p3-04/candidates.csv
+            audit-output/p3-04/summary.md
+          if-no-files-found: error
+          retention-days: 30
