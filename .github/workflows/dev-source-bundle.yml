@@ -1,27 +1,28 @@
 name: P3-03R apply implementation payload
 
 on:
-  push:
-    branches:
-      - agent/hakodase-p3-03r-generator-v3
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
 
 concurrency:
-  group: p3-03r-apply-payload
+  group: p3-03r-apply-payload-${{ github.event.pull_request.number }}
   cancel-in-progress: false
 
 jobs:
   apply:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
-      - name: Checkout branch
+      - name: Checkout source branch
         uses: actions/checkout@v4
         with:
-          ref: agent/hakodase-p3-03r-generator-v3
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
           persist-credentials: true
 
@@ -62,4 +63,4 @@ jobs:
           git add -A
           git diff --cached --check
           git commit -m 'feat: implement P3-03R generator v3'
-          git push origin HEAD:agent/hakodase-p3-03r-generator-v3
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
