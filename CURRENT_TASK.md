@@ -1,200 +1,248 @@
-# CURRENT_TASK: P3-03 生成器v2
+# CURRENT_TASK: P3-04 品質指標と1001件候補監査
 
 ## 目的
 
-P3-01盤面データv2とP3-02厳密ソルバーを使い、8〜14箱・3〜6色・同色複数箱・厳密最短20〜35操作の候補盤面をseedから決定論的に作る。
+P3-03生成器が返す8〜14箱・3〜6色・厳密最短20〜35操作の候補を、最短操作数だけで公式問題候補へ進めない。
+
+初手分岐、初期直行箱、壁利用、誤手・即時詰み、反復、色・方向偏り、重複を数値化し、1001件の再現可能な監査証拠を残す。
 
 ## 基準
 
 - 正式基準ブランチ: `main`
-- 基準コミット: `00e71c639144674869db2d722bc5404af9992dc6`
-- 基準内容: Pull Request #16統合後のP3-02完了地点
-- 作業ブランチ: `agent/hakodase-p3-03-generator-v2`
+- 基準コミット: `f2367c37851b6a956844d06d40bcec497838aac6`
+- 基準内容: Pull Request #17統合後のP3-03完了地点
+- 作業ブランチ: `agent/hakodase-p3-04-quality-audit`
 - Pull Request base: `main`
-- Pull Request: #17
+- Pull Request: #18
+- 監査対象head: `8bac149a2f1af133e8836d0a768e01efb0f71674`
 
 ## 今回の一目的
 
 ```text
-上限付きの候補生成器を実装し、全profileをP3-02で厳密に20〜35操作と証明する。
+P3-03候補の品質指標と構造重複を実装し、1001件監査をGitHub Actionsで完走して結果を固定する。
 ```
 
-P3-03では品質採点、1000件検査、公式問題集、公開ゲームへの接続を行わない。
+P3-04では人間試遊、公式問題集、公開ゲームへの接続、Supabaseランキングを実装しない。
 
 ## 実装対象
 
 ```text
-src/core/generator-v2.js
-test/generator-v2.test.js
-docs/P3_03_GENERATOR_V2.md
-docs/decisions/P3_03_GENERATOR_V2_DECISION.md
+src/core/quality-metrics-v2.js
+src/core/candidate-audit-v2.js
+scripts/p3-04-candidate-audit.mjs
+test/quality-metrics-v2.test.js
+test/candidate-audit-v2.test.js
+.github/workflows/p3-04-candidate-audit.yml
+docs/P3_04_QUALITY_AUDIT_V2.md
+docs/decisions/P3_04_QUALITY_AUDIT_V2_DECISION.md
+docs/decisions/P3_04_AUDIT_RESULT_DECISION.md
+docs/reports/P3_04_AUDIT_1001_SUMMARY.md
+package.json
+.gitignore
 CURRENT_TASK.md
 docs/COMPLETION_STATUS_v2.md
 ```
 
-## generatorVersion
+## 品質指標
 
 ```text
-route-scaffold/2.0.0
+initialLegalActionCount
+initialMovableBlockCount
+initialDirectExitActionCount
+initialDirectExitBlockCount
+initialOccupancyRate
+branchingByStep
+solutionDecisionStepRate
+solutionForcedStepRate
+offRouteAlternativeCount
+immediateDeadEndAlternativeRate
+wallUtilizationRate
+sameBlockRepeatRate
+maxSameBlockRun
+dominantDirectionRate
+dominantColorRate
 ```
 
-## 生成外形
+誤手・詰み指標は、代表手以外を1手だけ適用し、直後に合法手0件となる割合である。完全な詰み率とは扱わない。
+
+## 重複識別
+
+### `boardHash`
+
+盤面データv2の正式内容識別子。
+
+### `structureHash`
+
+監査用の補助識別子。次を正規化する。
 
 ```text
-盤面: 7×9
-箱: 8〜14個
-色: 3〜6色
-同色複数箱: 必須
-厳密最短: 20〜35操作
+箱IDと搬出口IDを除外
+搬出口位置順で色番号を振り直す
+同色箱を座標順へ並べる
+identity / mirrorX / mirrorY / rotate180を同一視
 ```
 
-## profile
+ランキングや公開問題IDには使用しない。
 
-| profile | 箱 | 色 | 期待厳密最短 |
-| --- | ---: | ---: | ---: |
-| `b08c3` | 8 | 3 | 20 |
-| `b09c3` | 9 | 3 | 21 |
-| `b10c4` | 10 | 4 | 24 |
-| `b11c4` | 11 | 4 | 25 |
-| `b12c5` | 12 | 5 | 28 |
-| `b13c5` | 13 | 5 | 29 |
-| `b14c6` | 14 | 6 | 26 |
+## 1001件監査
 
-上表にない箱数・色数の組合せを推測で作らず、`unsupported-profile`を返す。
-
-## 生成方式
-
-完全な自由配置ではなく、壁で分離した折れ曲がり経路scaffoldを使用する。
-
-seedから次を決める。
+GitHub Actions Run:
 
 ```text
-profile
-同型経路間の箱数配分
-identity / mirrorX / mirrorY / rotate180
-色置換
+30236109244
 ```
 
-経路外セルは壁にする。すべての箱、壁、搬出口を盤面データv2へ変換する。
-
-## 厳密採用手順
-
-1. `structural` profileでdraftを確定する。
-2. `boardHash`を計算する。
-3. 候補`puzzleId`をprofileとhashから作る。
-4. P3-02で厳密最短と解法列を求める。
-5. 20〜35操作か検査する。
-6. profile期待値と一致するか検査する。
-7. 解法列を再生し、全箱退場を確認する。
-8. `expectedOptimalSwipes`を設定する。
-9. `official` profileで再検証する。
-10. 全条件を満たした候補だけ返す。
-
-## 上限
+Artifact:
 
 ```text
-maxAttempts: 16
-maxNodes: 600,000
-maxStates: 600,000
-maxDepth: 35
-timeoutMs: 15,000
+hakodase-p3-04-audit-1
+ID: 8642009680
+digest: sha256:e4e8693941557e1aacea173d0b9b26bf6e74b73ba06503c4f4bdad8c4859ffb9
 ```
 
-上限到達時は盤面も厳密値も返さない。
+実行結果:
 
 ```text
-success: false
-boardData: null
-solution: []
+1001 candidate quality audit: success
+requested: 1001
+inspected: 1001
+generated: 1001
+failed: 0
+durationMs: 1,431,425
 ```
 
-検証されていないフォールバックを生成しない。
-
-## 公開API
+全体集計:
 
 ```text
-generateCandidateBoardV2(options)
-listGeneratorV2Profiles()
-GENERATOR_V2_VERSION
-GENERATOR_V2_TARGET
-GENERATOR_V2_DEFAULTS
-GENERATOR_V2_PROFILES
+candidate: 429
+review: 0
+reject: 572
+unique boardHash: 656
+unique structureHash: 27
+boardHash unique ratio: 65.53%
+structure unique ratio: 2.70%
 ```
 
-成功時は盤面データ、解法列、ソルバー計測値、変換内容を返す。
+## 発見したBLOCKER
 
-## 自動検証
+### 1. 初期直行箱
 
-GitHub Actions Run #37:
+572件が`initial-direct-exit`でhard rejectになった。
+
+```text
+b09c3: 初期直行箱1個 / 全143件
+b11c4: 初期直行箱1個 / 全143件
+b13c5: 初期直行箱1個 / 全143件
+b14c6: 初期直行箱2個 / 全143件
+```
+
+seedの偶発不良ではなくprofile構造の問題である。
+
+### 2. 構造の種類不足
+
+hard ruleを通過した429件に限定すると、一意`structureHash`は3件だけだった。
+
+```text
+b08c3: 143件 → 1構造
+b10c4: 143件 → 1構造
+b12c5: 143件 → 1構造
+```
+
+色置換、箱ID、反転で`boardHash`は増えているが、遊び方の基礎構造は増えていない。
+
+## その他の監査値
+
+```text
+初手合法操作 平均: 4.286
+判断手率 平均: 90.85%
+壁利用率 平均: 16.77%
+即時詰み代替率 平均: 0.00%
+同箱連続率 平均: 35.78%
+最大方向偏り 平均: 38.85%
+最大色偏り 平均: 45.52%
+ソルバーノード 平均: 106,487.857
+ソルバー時間 平均: 1,427.558ms
+```
+
+即時詰み0%は、数手後の詰みがないことを意味しない。
+
+## 最終自動Gate
+
+GitHub Actions Run `30237792287`:
 
 ```text
 Node tests and diff check: success
 Browser gate: success
+Node tests: 194
+pass: 194
+fail: 0
+skipped: 0
 ```
 
-確認結果:
+文書だけの後続同期では、専用1001件監査を再計算しない判定を追加した。監査ランタイムの対象ファイルが変わった時だけ再実行する。
 
-- Node全189件成功。
-- 失敗0、skip 0。
-- `git diff --check`成功。
-- generator v2局所7件成功。
-- 箱数8〜14を1箱刻みで確認。
-- 色数3〜6と同色複数箱を確認。
-- 全7profileの厳密最短が20、21、24、25、28、29、26操作であることを確認。
-- 全7profileが盤面データv2 `official`検証に合格。
-- 全7profileの解法再生に成功。
-- 同じseedの盤面・解法・variant・探索件数が一致。
-- 未対応profileを推測生成しないことを確認。
-- solver上限時に候補盤面を返さないことを確認。
-- 320×568 WebKit成功。
-- 390×844 WebKit成功。
-- 1280×720 Chromium成功。
-- Browser evidence artifact保存成功。
+## 正本報告
 
-全profileをまとめて厳密検査するテストは約9.0秒、Node全体は約10.0秒だった。
+```text
+docs/reports/P3_04_AUDIT_1001_SUMMARY.md
+docs/decisions/P3_04_AUDIT_RESULT_DECISION.md
+```
+
+## 判定
+
+```text
+P3-04監査処理: 合格
+P3-03候補品質: 不合格
+P3-05への移行: 禁止
+次工程: P3-03R
+```
+
+## P3-03R暫定条件
+
+```text
+1001件生成完走
+全profileで初期直行箱0
+hard rule通過候補の一意structureHash 60件以上
+各profileで一意structureHash 5件以上
+全件厳密最短20〜35操作
+同一seedの決定性維持
+未検証フォールバック禁止
+```
 
 ## 完了条件
 
-- [x] 生成器v2を実装した。
-- [x] 箱数8〜14を1箱刻みで覆った。
-- [x] 色数3〜6を覆った。
-- [x] 同色複数箱を全profileに含めた。
-- [x] seed付き変換を実装した。
-- [x] P3-02厳密ソルバーを採用条件へ接続した。
-- [x] 20〜35操作以外を拒否する。
-- [x] 解法再生失敗を拒否する。
-- [x] `official` profile不合格を拒否する。
-- [x] 上限停止時に候補を返さない。
-- [x] リポジトリ全Nodeテスト189件が成功した。
-- [x] Browser Gateが成功した。
+- [x] 初手分岐と初期直行箱を計測した。
+- [x] 代表解法上の分岐を計測した。
+- [x] 即時詰み代替率を計測した。
+- [x] 壁利用率を計測した。
+- [x] 反復、色、方向偏りを計測した。
+- [x] `structureHash`を実装した。
+- [x] 1001件監査CLIを実装した。
+- [x] 専用GitHub Actionsを実装した。
+- [x] Node・Browser Gateが成功した。
+- [x] 1001件監査jobが成功した。
+- [x] 監査summaryをGitHub文書へ固定した。
+- [x] P3-03補修が必要と判断した。
+- [x] 最終文書同期後のNode・Browser Gateが成功した。
 - [ ] 人間レビューが完了する。
-
-## 既知の制限
-
-- scaffold方式であり、完全自由配置ではない。
-- 反転と色置換は構造上同じ問題になる場合がある。
-- 初手分岐、直行箱、壁利用率、誤手、詰み、反復、偏りはまだ採否へ使わない。
-- 14箱profileには初期直行箱が存在しうる。
-- 1000件での採用率と重複率は未確認。
-- 人間試遊は未実施。
-- 公開中の試作盤面バンクは変更しない。
 
 ## 対象外
 
 ```text
-P3-04 品質指標と1000件以上の候補検査
-P3-05 試遊済み公式問題集
+P3-03R生成器補修の実装
+P3-05 人間試遊と公式問題集
 P3-06 本日の出荷
 Supabaseランキング
 Codeberg公開内容の変更
+公開ゲームでの実行時ソルバー
 出荷シャッター
 Three.js / WebGL
 ```
 
 ## 次工程
 
-Pull Request #17の人間レビュー・統合後、最新`main`から開始する。
+Pull Request #18のレビュー・統合後、最新`main`から開始する。
 
 ```text
-P3-04: 初手分岐・直行箱・壁利用率・誤手/詰み指標と1000件検査
+P3-03R: 生成器v2補修
 ```
