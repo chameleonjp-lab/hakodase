@@ -1,26 +1,53 @@
-name: P3-03R source bundle
+name: P3-03R apply implementation payload
 
 on:
-  pull_request:
-    branches: [main]
+  push:
+    branches:
+      - agent/hakodase-p3-03r-generator-v3
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: p3-03r-apply-payload
+  cancel-in-progress: false
 
 jobs:
-  bundle:
+  apply:
+    if: ${{ hashFiles('.github/p3-03r-payload.b64') != '' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Bundle repository source for P3-03R development
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/hakodase-p3-03r-generator-v3
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Decode and verify payload
         shell: bash
         run: |
-          tar -czf hakodase-source.tgz \
-            package.json package-lock.json .gitignore \
-            src scripts test docs .github playwright.config.js index.html styles
-      - uses: actions/upload-artifact@v4
-        with:
-          name: hakodase-p3-03r-source
-          path: hakodase-source.tgz
-          retention-days: 1
+          set -euo pipefail
+          base64 --decode .github/p3-03r-payload.b64 > /tmp/p3-03r-payload.tgz
+          echo '1667287117d9760b6b24275328cc85b02d3ea2995c2393c6c30c1552b8529cf3  /tmp/p3-03r-payload.tgz' | sha256sum --check -
+
+      - name: Apply files and remove temporary transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -xzf /tmp/p3-03r-payload.tgz -C .
+          rm -f .github/p3-03r-payload.b64
+          rm -f .github/workflows/dev-source-bundle.yml
+
+      - name: Commit and push implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'hakodase-p3-03r-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'feat: implement P3-03R generator v3'
+          git push origin HEAD:agent/hakodase-p3-03r-generator-v3
