@@ -1,201 +1,213 @@
-# CURRENT_TASK: P3-03R 生成器v3補修
+# CURRENT_TASK: P3-05A 試遊候補パックと手動評価契約
 
 ## 目的
 
-P3-04の1001件監査で確認した次のBLOCKERを解消する。
+P3-03Rで自動条件を通過した66構造を、人が遊ぶ前の候補証拠として固定する。
 
-```text
-初期直行箱: 572 / 1001件
-hard rule通過後の一意structureHash: 3件
-```
+盤面、厳密最短、代表解法、版、hash、自動品質指標と、人間が記入する試遊記録を分離し、P3-05の手動評価を開始できる状態にする。
 
 ## 基準
 
 - 正式基準ブランチ: `main`
-- 基準コミット: `f5695b08863ba8c3319b9fb3a5c93f9c7e1aa04f`
-- 基準内容: Pull Request #18統合後のP3-04完了地点
-- 作業ブランチ: `agent/hakodase-p3-03r-generator-v3`
+- 基準コミット: `45d735cc472a0fc1b3f1fbf146e40807e75c5cc3`
+- 基準内容: Pull Request #19統合後のP3-03R完了地点
+- 作業ブランチ: `agent/hakodase-p3-05-review-pack`
 - Pull Request base: `main`
-- Pull Request: #19
-- 実装head: `02f63ff31ab925d7c5180cdab5a243973687bfaa`
+- Pull Request: 作成前
 
 ## 今回の一目的
 
 ```text
-全profileの初期直行箱を0にし、66件の独立構造を持つ生成器v3を実装し、1001件再監査へ合格する。
+66構造の決定論的な試遊候補パックと、手動評価の保存・検証契約を作る。
 ```
 
-P3-05の人間試遊、公式問題集、公開ゲームへの接続、Supabaseランキングは今回実施しない。
-
-## 生成版
-
-```text
-旧: route-scaffold/2.0.0
-新: route-catalog/3.0.0
-```
+P3-05Aでは、実際の人間試遊、正式採用30問の確定、公開ゲームへの接続を行わない。
 
 ## 実装対象
 
 ```text
-src/core/generator-v3-catalog.js
-src/core/generator-v3-proof.js
-src/core/generator-v2.js
-src/core/candidate-audit-v2.js
-scripts/p3-04-candidate-audit.mjs
-test/generator-v3-catalog.test.js
-test/candidate-audit-v2.test.js
-.github/workflows/p3-04-candidate-audit.yml
-docs/P3_03R_GENERATOR_V3.md
-docs/decisions/P3_03R_GENERATOR_V3_DECISION.md
-docs/reports/P3_03R_AUDIT_1001_SUMMARY.md
+src/core/p3-05-review-pack.js
+src/core/p3-05-playtest-record.js
+scripts/p3-05-build-review-pack.mjs
+test/p3-05-review-pack.test.js
+test/p3-05-playtest-record.test.js
+.github/workflows/p3-05-review-pack.yml
+src/data/p3-05-review-pack.json
+docs/review/P3_05_PLAYTEST_RECORDS.json
+docs/review/P3_05_PLAYTEST_SHEET.csv
+docs/P3_05_REVIEW_PACK.md
+docs/decisions/P3_05_REVIEW_CONTRACT_DECISION.md
+package.json
 CURRENT_TASK.md
 docs/COMPLETION_STATUS_v2.md
 ```
 
-一時的なpayloadファイルと適用workflowはすべて削除済みである。
+固定候補ファイルと空の記録シートは、専用workflowのartifact生成後に同じDraft Pull Requestへ追加する。
 
-## 基礎構造
+## 候補の固定方法
 
-| profile | 箱 | 色 | 最短 | 構造数 |
-| --- | ---: | ---: | ---: | ---: |
-| `b08c3` | 8 | 3 | 20 | 12 |
-| `b09c3` | 9 | 3 | 21 | 12 |
-| `b10c4` | 10 | 4 | 24 | 12 |
-| `b11c4` | 11 | 4 | 25 | 12 |
-| `b12c5` | 12 | 5 | 28 | 8 |
-| `b13c5` | 13 | 5 | 29 | 5 |
-| `b14c6` | 14 | 6 | 28 | 5 |
+各テンプレートに次の固定seedを使う。
 
 ```text
-合計構造: 66
-全profile: 5構造以上
+p3-05-review-v1:<templateId>
 ```
 
-## 厳密証明
+`templateId`も明示するため、別構造へ置き換わらない。
 
-61構造は経路間に重複・隣接がなく、独立成分ごとにP3-02で厳密証明する。
-
-`b14c6`の5構造は経路間に隣接があるため、盤面全体をP3-02で探索する。
+レビューID:
 
 ```text
-proofMode: components | global
+review-<templateId>-<boardHash先頭12桁>
 ```
 
-`b14c6`全体探索:
+盤面内容が変わる場合、古いレビューIDと試遊結果を使い回さない。
+
+## 候補数
+
+| profile | 候補数 |
+| --- | ---: |
+| `b08c3` | 12 |
+| `b09c3` | 12 |
+| `b10c4` | 12 |
+| `b11c4` | 12 |
+| `b12c5` | 8 |
+| `b13c5` | 5 |
+| `b14c6` | 5 |
+| 合計 | 66 |
+
+## 候補証拠
+
+各候補へ次を保存する。
 
 ```text
-optimalSwipes: 28
-nodesExpanded: 539,959
+reviewId
+reviewStatus: unreviewed
+templateId
+profileId
+seed
+puzzleId
+boardHash
+structureHash
+schemaVersion
+rulesVersion
+generatorVersion
+optimalSwipes
+variant
+boardData
+representativeSolution
+proof
+quality
 ```
 
-反転と色置換後は、解法の座標、方向、色を同じ変換で写像し、変換後盤面で再生する。
+処理時間は実行環境で変わるため固定証拠へ含めない。
 
-## 1001件再監査
-
-GitHub Actions audit run:
+## 手動試遊記録
 
 ```text
-30262286810
+reviewer
+device
+browser
+playedAt
+attemptCount
+clearCount
+bestTimeMs
+bestSwipeCount
+ratings
+knownDeadlocks
+notes
+decision
+decisionReason
 ```
 
-Artifact:
+評価項目:
 
 ```text
-name: hakodase-p3-03r-audit-1
-id: 8651376790
-digest: sha256:a055bd834fa7cf41e6775c6c1c18e269797d4979e53798d40957bb94801e40ea
+enjoyment
+clarity
+difficulty
+distinctiveness
+fairness
 ```
 
-結果:
+判断:
 
 ```text
-requested: 1001
-inspected: 1001
-generated: 1001
-generation failures: 0
-candidate: 1001
-review: 0
-reject: 0
-initial direct exit blocks: 0
-unique boardHash: 912
-eligible unique structureHash: 66
-optimal swipes: 20〜29
-acceptance.passed: true
+pending
+accept
+reject
+revise
 ```
 
-profile別の一意構造:
+`accept`完了には、試遊者・環境・日時・1回以上のクリア・5項目評価・採用理由が必要である。
+
+厳密最短より少ない人間記録は不整合として拒否する。
+
+## 生成コマンド
+
+```bash
+npm run build:p3-05-review-pack -- \
+  --out-dir review-output/p3-05 \
+  --require-count 66
+```
+
+出力:
 
 ```text
-b08c3: 12
-b09c3: 12
-b10c4: 12
-b11c4: 12
-b12c5: 8
-b13c5: 5
-b14c6: 5
+review-pack.json
+playtest-records.json
+playtest-sheet.csv
+summary.md
+review-output.log
 ```
 
-## 自動Gate
+## 自動検証
 
-GitHub Actions CI run:
+- 66候補を生成する。
+- profile配分が`12 / 12 / 12 / 12 / 8 / 5 / 5`である。
+- `reviewId`、`templateId`、`puzzleId`、`boardHash`、`structureHash`が重複しない。
+- 全候補が厳密証明を持つ。
+- 全候補が20〜35操作である。
+- 全候補の初期直行箱が0件である。
+- 同じ条件で同じ候補パックを返す。
+- 証拠改ざんを検出する。
+- 手動記録の候補不一致と不正値を検出する。
+
+専用workflow:
 
 ```text
-30262286867
+.github/workflows/p3-05-review-pack.yml
 ```
 
-結果:
+## 完了条件
 
-```text
-Node tests and diff check: success
-Browser gate: success
-Node tests: 199
-pass: 199
-fail: 0
-skipped: 0
-```
-
-ブラウザ対象:
-
-```text
-WebKit 320×568
-WebKit 390×844
-Chromium 1280×720
-```
-
-## 受け入れ条件
-
-- [x] 1001件を検査した。
-- [x] 生成失敗0件。
-- [x] hard reject 0件。
-- [x] 全profileで初期直行箱0件。
-- [x] hard rule通過後の一意構造60件以上。実測66件。
-- [x] 各profileで一意構造5件以上。
-- [x] 全件の厳密最短が20〜35操作。実測20〜29操作。
-- [x] 同一seedの決定性を維持した。
-- [x] 未検証フォールバックを追加していない。
-- [x] Node・Browser Gateが成功した。
+- [x] 66候補パック生成処理を実装した。
+- [x] 候補証拠の契約を固定した。
+- [x] 手動試遊記録の契約を固定した。
+- [x] JSON、CSV、Markdown生成処理を実装した。
+- [x] 専用GitHub Actionsを追加した。
+- [ ] Node Gateが成功する。
+- [ ] Browser Gateが成功する。
+- [ ] Review Pack workflowが成功する。
+- [ ] 正本候補データをリポジトリへ固定する。
+- [ ] 空の手動記録JSONとCSVをリポジトリへ固定する。
 - [ ] 人間レビューが完了する。
 
-## 正本文書
+## 対象外
 
 ```text
-docs/P3_03R_GENERATOR_V3.md
-docs/decisions/P3_03R_GENERATOR_V3_DECISION.md
-docs/reports/P3_03R_AUDIT_1001_SUMMARY.md
+P3-05B 試遊レビュー画面
+人間による66候補の試遊
+P3-05C 30問以上の正式問題集
+P3-06 本日の出荷
+Supabaseランキング
+Codeberg公開内容の変更
 ```
-
-## 公開版との関係
-
-Codeberg公開版、現行`generator.js`、本日の出荷、公式ランキングは変更していない。
-
-生成器v3と厳密ソルバーは開発時だけ使用する。公開ブラウザで1001件監査や厳密探索を実行しない。
 
 ## 次工程
 
-Pull Request #19の人間レビュー・統合後、最新`main`から開始する。
+P3-05A統合後:
 
 ```text
-P3-05: 人間試遊と公式問題集
+P3-05B: 固定候補を実機で試遊するレビュー導線
+P3-05C: 試遊結果から公式問題集を確定
 ```
-
-66構造を母集団として試遊し、30問以上の正式問題集を目標に採否理由を記録する。
