@@ -25,7 +25,7 @@
 | P3-01 | 盤面データv2・版管理 | 統合済み・自動Gate合格 | Pull Request #15 |
 | P3-02 | 厳密ソルバーv2 | 統合済み・自動Gate合格 | Pull Request #16。Node全182件、3環境Browser Gate成功 |
 | P3-03 | 生成器v2 | 統合済み・自動Gate合格・品質BLOCKER | Pull Request #17。厳密20〜35操作は達成したがP3-04で初期直行・構造不足を確認 |
-| P3-04 | 品質指標・1001件監査 | 監査完了・文書同期後CI/レビュー待ち | Pull Request #18。1001件完走。P3-03Rが必要と判断 |
+| P3-04 | 品質指標・1001件監査 | 自動Gate合格・レビュー待ち | Pull Request #18。1001件完走、Node全194件、3環境Browser Gate成功。P3-03Rが必要 |
 | P3-03R | 生成器v2補修 | 未着手 | 初期直行箱0、構造数増加、再監査が必要 |
 | P3-05 | 試遊済み公式問題集 | 進行禁止 | P3-03Rと再監査が終わるまで開始しない |
 | P3-06 | 本日の出荷 | 未着手 | 検証済み問題集から決定論的に選択 |
@@ -196,6 +196,29 @@ hard rule通過429件の一意`structureHash`:
 docs/reports/P3_04_AUDIT_1001_SUMMARY.md
 docs/decisions/P3_04_AUDIT_RESULT_DECISION.md
 ```
+
+## P3-04自動Gate
+
+1001件専用監査:
+
+```text
+Run: 30236109244
+1001 candidate quality audit: success
+```
+
+最終Node・Browser Gate:
+
+```text
+Run: 30237792287
+Node tests and diff check: success
+Browser gate: success
+Node tests: 194
+pass: 194
+fail: 0
+skipped: 0
+```
+
+文書だけの後続同期では、1001件監査の再計算を省略する判定を追加した。監査ランタイムの対象ファイルが変わった場合は再実行する。
 
 ## P3-04判定
 
