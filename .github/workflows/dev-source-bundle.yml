@@ -1,4 +1,4 @@
-name: P3-03R recover implementation payload
+name: P3-03R export implementation payload
 
 on:
   pull_request:
@@ -9,11 +9,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: p3-03r-recover-payload-${{ github.event.pull_request.number }}
+  group: p3-03r-export-payload-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  recover:
+  export:
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -24,30 +24,27 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.ref }}
 
-      - name: Assemble and decode payload
+      - name: Verify payload files exist
         shell: bash
         run: |
           set -euo pipefail
+          test -f .github/p3-03r-payload.b64
           for part in 00 01 02 03; do
             test -f ".github/p3-03r-payload.part${part}"
           done
+          wc -c .github/p3-03r-payload.b64 .github/p3-03r-payload.part*
+          sha256sum .github/p3-03r-payload.b64 .github/p3-03r-payload.part*
 
-          cat \
-            .github/p3-03r-payload.part00 \
-            .github/p3-03r-payload.part01 \
-            .github/p3-03r-payload.part02 \
-            .github/p3-03r-payload.part03 \
-            | tr -d '\r\n\t ' \
-            > /tmp/p3-03r-payload.b64
-
-          base64 --decode /tmp/p3-03r-payload.b64 > p3-03r-implementation.tgz
-          tar -tzf p3-03r-implementation.tgz
-          sha256sum /tmp/p3-03r-payload.b64 p3-03r-implementation.tgz
-
-      - name: Upload recovered implementation
+      - name: Upload payload source files
         uses: actions/upload-artifact@v4
         with:
-          name: hakodase-p3-03r-implementation
-          path: p3-03r-implementation.tgz
+          name: hakodase-p3-03r-payload-source
+          path: |
+            .github/p3-03r-payload.b64
+            .github/p3-03r-payload.part00
+            .github/p3-03r-payload.part01
+            .github/p3-03r-payload.part02
+            .github/p3-03r-payload.part03
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 1
