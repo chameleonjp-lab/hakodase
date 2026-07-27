@@ -38,6 +38,13 @@ reviewPackVersion: p3-05-review-pack/1.0.0
 | `b14c6` | 5 |
 | 合計 | 66 |
 
+```text
+最短操作数: 20〜29
+一方通行床を含む候補: 5
+proofMode components: 61
+proofMode global: 5
+```
+
 ## 3. 候補の固定方法
 
 各テンプレートについて、次のseedを使用する。
@@ -174,7 +181,7 @@ npm run build:p3-05-review-pack -- \
   --require-count 66
 ```
 
-出力:
+一時出力:
 
 ```text
 review-pack.json
@@ -184,19 +191,30 @@ summary.md
 review-output.log
 ```
 
-### `review-pack.json`
+リポジトリ正本:
 
-盤面、厳密解、自動証拠を持つ正本候補データ。
+```text
+docs/review/P3_05_REVIEW_PACK.json
+docs/review/P3_05_PLAYTEST_RECORDS.json
+docs/review/P3_05_PLAYTEST_SHEET.csv
+docs/review/P3_05_REVIEW_PACK_SUMMARY.md
+```
 
-### `playtest-records.json`
+候補パックは公開対象の`src/`へ置かない。`docs/review/`はCodeberg Pages自動公開の対象外である。
+
+### `P3_05_REVIEW_PACK.json`
+
+盤面、厳密解、自動証拠を持つ正本候補データ。機械読取用の1行JSONとして保存し、盤面内容は省略しないまま差分行数を抑える。
+
+### `P3_05_PLAYTEST_RECORDS.json`
 
 全候補の空の手動試遊記録。
 
-### `playtest-sheet.csv`
+### `P3_05_PLAYTEST_SHEET.csv`
 
 表計算ソフトで記入できる同内容のシート。
 
-### `summary.md`
+### `P3_05_REVIEW_PACK_SUMMARY.md`
 
 候補数とprofile配分を読みやすく表示する。
 
@@ -220,24 +238,59 @@ review-output.log
 .github/workflows/p3-05-review-pack.yml
 ```
 
-候補資料を生成し、30日保持するartifactへ保存する。
+候補資料を生成し、30日保持するartifactへ保存する。同じPull Requestの正本ファイルと生成結果を一致させる。
 
-リポジトリへ固定候補ファイルを追加した後は、毎回の生成結果とバイト単位で一致することを検査する。
+## 8. 自動Gate結果
 
-## 8. P3-05A完了条件
+P3-05 Review Pack workflow:
 
-- [x] 決定論的な66候補パック生成処理を実装する。
-- [x] 候補証拠の項目を固定する。
-- [x] 手動試遊記録の項目と検証規則を固定する。
-- [x] JSON、CSV、Markdown生成処理を実装する。
-- [x] 専用GitHub Actionsを追加する。
-- [ ] Node Gateが成功する。
-- [ ] Browser Gateが成功する。
-- [ ] Review Pack workflowが成功する。
-- [ ] 生成した正本候補データと空の記録シートを同じPull Requestへ固定する。
+```text
+Run: 30266443413
+Build 66-candidate review pack: success
+```
+
+Artifact:
+
+```text
+name: hakodase-p3-05-review-pack-1
+id: 8652982976
+digest: sha256:42704e877a107cf9618151c6a0a432659a75bc2256baaea16ef4cf25623aec69
+```
+
+通常CI:
+
+```text
+Run: 30266443573
+Node tests and diff check: success
+Browser gate: success
+Node tests: 207
+pass: 207
+fail: 0
+skipped: 0
+```
+
+ブラウザ対象:
+
+```text
+WebKit 320×568
+WebKit 390×844
+Chromium 1280×720
+```
+
+## 9. P3-05A完了条件
+
+- [x] 決定論的な66候補パック生成処理を実装した。
+- [x] 候補証拠の項目を固定した。
+- [x] 手動試遊記録の項目と検証規則を固定した。
+- [x] JSON、CSV、Markdown生成処理を実装した。
+- [x] 専用GitHub Actionsを追加した。
+- [x] Node Gateが成功した。
+- [x] Browser Gateが成功した。
+- [x] Review Pack workflowが成功した。
+- [x] 生成した正本候補データと空の記録シートを同じPull Requestへ固定した。
 - [ ] 人間レビューが完了する。
 
-## 9. 対象外
+## 10. 対象外
 
 ```text
 候補を実際に遊ぶレビュー画面
@@ -249,7 +302,7 @@ Supabaseランキング
 Codeberg公開内容の変更
 ```
 
-## 10. 次工程
+## 11. 次工程
 
 P3-05A統合後:
 
