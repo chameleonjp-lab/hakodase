@@ -24,8 +24,8 @@
 | P2-06-B1 | 非自明盤面暫定修正 | 統合済み・暫定 | Pull Request #14。4箱8〜12操作の試作盤面 |
 | P3-01 | 盤面データv2・版管理 | 統合済み・自動Gate合格 | Pull Request #15 |
 | P3-02 | 厳密ソルバーv2 | 統合済み・自動Gate合格 | Pull Request #16。Node全182件、3環境Browser Gate成功 |
-| P3-03 | 生成器v2 | 実装済み・自動Gate合格・レビュー待ち | Pull Request #17。Node全189件、全7profile厳密証明、3環境Browser Gate成功 |
-| P3-04 | 品質指標・1000件検査 | 未着手 | 初手分岐、直行箱、壁利用率、誤手・詰み、反復、偏り、重複 |
+| P3-03 | 生成器v2 | 統合済み・自動Gate合格 | Pull Request #17。8〜14箱、3〜6色、厳密20〜35操作を証明 |
+| P3-04 | 品質指標・1001件監査 | 実装中 | 指標、structureHash、監査CLI、専用workflowを追加。CI・1001件結果待ち |
 | P3-05 | 試遊済み公式問題集 | 未着手 | 自動条件通過候補を人間試遊し採否を記録 |
 | P3-06 | 本日の出荷 | 未着手 | 検証済み問題集から決定論的に選択 |
 
@@ -72,15 +72,13 @@ Browser gate: success
 Node全182件、失敗0、skip 0
 ```
 
-## P3-03 生成器v2
+## P3-03 完了内容
 
-### 生成版
+生成版:
 
 ```text
 route-scaffold/2.0.0
 ```
-
-### profile
 
 | profile | 箱 | 色 | 厳密最短 |
 | --- | ---: | ---: | ---: |
@@ -92,101 +90,131 @@ route-scaffold/2.0.0
 | `b13c5` | 13 | 5 | 29 |
 | `b14c6` | 14 | 6 | 26 |
 
-箱数8〜14を1箱刻みで覆い、色数3〜6と同色複数箱を含む。
+候補ごとに盤面データv2、SHA-256 `boardHash`、P3-02厳密解、20〜35操作、解法再生、`official` profileを検査する。
 
-### 生成方式
-
-完全な自由配置ではなく、壁で分離した折れ曲がり経路scaffoldを使用する。
-
-seedから次を決める。
-
-- profile。
-- 同型経路間の箱数配分。
-- 左右反転、上下反転、180度回転。
-- 色置換。
-
-候補ごとに次を実行する。
-
-1. 盤面データv2 `structural`検証。
-2. `boardHash`生成。
-3. P3-02厳密ソルバー。
-4. 最短20〜35操作の確認。
-5. profile期待値との一致。
-6. 解法再生。
-7. `official` profile再検証。
-
-一つでも失敗した候補は返さない。
-
-### 既定上限
-
-```text
-maxAttempts: 16
-maxNodes: 600,000
-maxStates: 600,000
-maxDepth: 35
-timeoutMs: 15,000
-```
-
-上限到達時は盤面、解法、厳密値を返さない。未検証フォールバックを生成しない。
-
-### 再現性
-
-同じseed、profile条件、生成版、ルール版、ソルバー上限では、同じ盤面、`boardHash`、解法、探索件数を返す。
-
-候補`puzzleId`はprofileと`boardHash`から作る。正式採用時はP3-05で運用用IDを発行する。
-
-### 自動Gate
-
-GitHub Actions Run #37:
+Pull Request #17の最終Gate:
 
 ```text
 Node tests and diff check: success
 Browser gate: success
+Node全189件、失敗0、skip 0
 ```
 
-- Node全189件成功。
-- 失敗0、skip 0。
-- `git diff --check`成功。
-- generator v2局所7件成功。
-- 全7profileの厳密最短を確認。
-- 全7profileが盤面データv2 `official`検証に合格。
-- 全7profileの解法再生に成功。
-- 同じseedの盤面、解法、variant、探索件数が一致。
-- 未対応profileの推測生成を拒否。
-- solver上限時に候補盤面を返さない。
-- 320×568 WebKit成功。
-- 390×844 WebKit成功。
-- 1280×720 Chromium成功。
-- Browser evidence artifact保存成功。
-- 全profile厳密検査は約9.0秒、Node全体は約10.0秒。
+P3-03候補はまだ公式問題ではない。scaffold、全体反転、色置換だけでは構造上同じ問題になる場合があり、14箱profileには初期直行箱が存在しうる。
 
-## P3-03の限界
+## P3-04 実装内容
 
-P3-03の候補は公式問題ではない。
+### 品質指標
 
-未確認:
+```text
+initialLegalActionCount
+initialMovableBlockCount
+initialDirectExitActionCount
+initialDirectExitBlockCount
+initialOccupancyRate
+branchingByStep
+solutionDecisionStepRate
+solutionForcedStepRate
+offRouteAlternativeCount
+immediateDeadEndAlternativeRate
+wallUtilizationRate
+sameBlockRepeatRate
+maxSameBlockRun
+dominantDirectionRate
+dominantColorRate
+```
 
-- 初手分岐数。
-- 初期直行可能箱数。
-- 壁利用率。
-- 誤手と詰み。
-- 同一操作の反復率。
-- 色と方向の偏り。
-- 1000件以上での採用率。
-- `boardHash`重複率。
-- 人が遊んだ時の面白さ。
+### 誤手・詰みの範囲
 
-scaffold、全体反転、色置換だけでは構造上同じ問題になる場合がある。14箱profileには初期直行箱が存在しうる。
+代表最短解法の各状態で代表手以外を1手だけ適用し、未退場箱が残るのに直後の合法操作が0件となるものを`即時詰み`と数える。
 
-P3-04で数値化し、P3-05で人間試遊するまで公式問題へ昇格しない。
+数手後の詰み、別の最短解法、最短ではないが解ける手までは区別しない。
+
+### structureHash
+
+`boardHash`とは別に、監査用の構造識別子を追加する。
+
+正規化:
+
+```text
+箱IDと搬出口IDを除外
+搬出口位置順で色番号を振り直す
+同色箱を座標順へ並べる
+左右反転・上下反転・180度回転を同一視
+```
+
+`structureHash`はランキングや公開問題IDに使用しない。
+
+### 暫定screening
+
+hard reject:
+
+```text
+no-initial-legal-action
+initial-direct-exit
+```
+
+review flag:
+
+```text
+low-initial-branching
+low-decision-density
+low-wall-utilization
+high-same-block-repeat
+high-direction-bias
+high-color-bias
+```
+
+判定は`candidate / review / reject`とする。閾値は1001件結果を見るための暫定値であり、P3-05採用条件としてまだ確定しない。
+
+### 1001件監査
+
+```bash
+npm run audit:p3-04 -- \
+  --count 1001 \
+  --seed-prefix p3-04-audit-v1 \
+  --out-dir audit-output/p3-04
+```
+
+出力:
+
+```text
+audit.json
+candidates.csv
+summary.md
+audit-output.log
+```
+
+専用workflow:
+
+```text
+.github/workflows/p3-04-candidate-audit.yml
+```
+
+- 通常のNode・Browser Gateから分離。
+- timeout 60分。
+- artifact 30日保持。
+- rejectやreviewの多さではjobを失敗させない。
+- 1001件を最後まで処理し、証拠を保存できたかを処理成功条件とする。
+
+## P3-04で残る確認
+
+- リポジトリ全Nodeテスト。
+- `git diff --check`。
+- 320×568 WebKit。
+- 390×844 WebKit。
+- 1280×720 Chromium。
+- 1001件専用audit job。
+- audit artifactのJSON・CSV・Markdown。
+- summaryのGitHub文書化。
+- P3-03生成器補修の要否判断。
+- 人間レビュー。
 
 ## 公開版との関係
 
 現在Codebergで遊べる盤面はPull Request #14の4箱・8〜12操作の暫定版である。
 
-P3-03は公開中の`generator.js`、試作盤面バンク、UIへ接続しない。公開ゲーム開始時に厳密ソルバーを動かさない。
-
-正式問題はP3-04とP3-05を通過後、P3-06で本日の出荷へ接続する。
+P3-04は公開中の`generator.js`、試作盤面バンク、UIへ接続しない。正式問題はP3-04とP3-05を通過後、P3-06で本日の出荷へ接続する。
 
 ## 残る実機・設定確認
 
@@ -199,8 +227,14 @@ P3-03は公開中の`generator.js`、試作盤面バンク、UIへ接続しな�
 
 ## 次の作業
 
-Pull Request #17の人間レビュー・統合後、最新`main`から開始する。
+1001件監査で構造上のBLOCKERが見つかった場合:
 
 ```text
-P3-04: 品質指標と1000件以上の候補検査
+P3-03R: 生成器v2補修
+```
+
+監査でP3-05へ渡せる候補が確認された場合:
+
+```text
+P3-05: 人間試遊と公式問題集
 ```
