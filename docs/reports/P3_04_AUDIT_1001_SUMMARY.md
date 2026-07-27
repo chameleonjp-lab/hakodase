@@ -1,11 +1,11 @@
 # P3-04 1001件候補監査結果
 
-実施日: 2026年7月27日  
-対象Pull Request: #18  
-対象head: `8bac149a2f1af133e8836d0a768e01efb0f71674`  
-GitHub Actions Run: `30236109244`  
-Artifact: `hakodase-p3-04-audit-1` / ID `8642009680`  
-Artifact digest: `sha256:e4e8693941557e1aacea173d0b9b26bf6e74b73ba06503c4f4bdad8c4859ffb9`
+- 実施日: 2026年7月27日
+- 対象Pull Request: #18
+- 対象head: `8bac149a2f1af133e8836d0a768e01efb0f71674`
+- GitHub Actions Run: `30236109244`
+- Artifact: `hakodase-p3-04-audit-1` / ID `8642009680`
+- Artifact digest: `sha256:e4e8693941557e1aacea173d0b9b26bf6e74b73ba06503c4f4bdad8c4859ffb9`
 
 ## 1. 結論
 
