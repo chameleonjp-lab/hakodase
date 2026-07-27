@@ -1,0 +1,98 @@
+name: Hakodase P3-05 Review Pack
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/core/p3-05-review-pack.js'
+      - 'src/core/p3-05-playtest-record.js'
+      - 'src/core/generator-v2.js'
+      - 'src/core/generator-v3-catalog.js'
+      - 'src/core/generator-v3-proof.js'
+      - 'src/core/quality-metrics-v2.js'
+      - 'scripts/p3-05-build-review-pack.mjs'
+      - 'test/p3-05-review-pack.test.js'
+      - 'test/p3-05-playtest-record.test.js'
+      - 'src/data/p3-05-review-pack.json'
+      - 'docs/review/P3_05_PLAYTEST_RECORDS.json'
+      - 'docs/review/P3_05_PLAYTEST_SHEET.csv'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/p3-05-review-pack.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hakodase-p3-05-review-pack-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-review-pack:
+    name: Build 66-candidate review pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build review evidence
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build:p3-05-review-pack -- \
+            --out-dir review-output/p3-05 \
+            --require-count 66 \
+            2>&1 | tee review-output.log
+
+      - name: Verify committed review pack
+        shell: bash
+        run: |
+          if [[ -f src/data/p3-05-review-pack.json ]]; then
+            cmp review-output/p3-05/review-pack.json src/data/p3-05-review-pack.json
+          else
+            echo 'Committed review pack is not present yet; use this artifact to add it to the same Draft PR.'
+          fi
+
+      - name: Verify committed playtest templates
+        shell: bash
+        run: |
+          if [[ -f docs/review/P3_05_PLAYTEST_RECORDS.json ]]; then
+            cmp review-output/p3-05/playtest-records.json docs/review/P3_05_PLAYTEST_RECORDS.json
+          fi
+          if [[ -f docs/review/P3_05_PLAYTEST_SHEET.csv ]]; then
+            cmp review-output/p3-05/playtest-sheet.csv docs/review/P3_05_PLAYTEST_SHEET.csv
+          fi
+
+      - name: Add review summary
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f review-output/p3-05/summary.md ]]; then
+            cat review-output/p3-05/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload P3-05 review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hakodase-p3-05-review-pack-${{ github.run_attempt }}
+          path: |
+            review-output.log
+            review-output/p3-05/review-pack.json
+            review-output/p3-05/playtest-records.json
+            review-output/p3-05/playtest-sheet.csv
+            review-output/p3-05/summary.md
+          if-no-files-found: error
+          retention-days: 30
