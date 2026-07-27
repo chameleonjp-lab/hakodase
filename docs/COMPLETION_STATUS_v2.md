@@ -6,7 +6,7 @@
 
 仕様と完了条件は各v2契約文書と`COMPLETION_PLAN_v2.md`を優先する。
 
-最終更新日: 2026年7月24日
+最終更新日: 2026年7月27日
 
 ## 現在地
 
@@ -24,7 +24,7 @@
 | P2-06-B1 | 非自明盤面暫定修正 | 統合済み・暫定 | Pull Request #14。4箱8〜12操作の試作盤面 |
 | P3-01 | 盤面データv2・版管理 | 統合済み・自動Gate合格 | Pull Request #15 |
 | P3-02 | 厳密ソルバーv2 | 統合済み・自動Gate合格 | Pull Request #16。Node全182件、3環境Browser Gate成功 |
-| P3-03 | 生成器v2 | 実装済み・CI/レビュー待ち | 8〜14箱、3〜6色、同色複数箱、厳密20〜35操作の候補生成器 |
+| P3-03 | 生成器v2 | 実装済み・自動Gate合格・レビュー待ち | Pull Request #17。Node全189件、全7profile厳密証明、3環境Browser Gate成功 |
 | P3-04 | 品質指標・1000件検査 | 未着手 | 初手分岐、直行箱、壁利用率、誤手・詰み、反復、偏り、重複 |
 | P3-05 | 試遊済み公式問題集 | 未着手 | 自動条件通過候補を人間試遊し採否を記録 |
 | P3-06 | 本日の出荷 | 未着手 | 検証済み問題集から決定論的に選択 |
@@ -135,18 +135,30 @@ timeoutMs: 15,000
 
 候補`puzzleId`はprofileと`boardHash`から作る。正式採用時はP3-05で運用用IDを発行する。
 
-## P3-03の自動テスト予定
+### 自動Gate
 
-- profileが8〜14箱を覆う。
-- 色数3〜6を覆う。
-- 全profileに同色複数箱がある。
-- 全profileの厳密最短が20〜35操作。
-- 全profileが盤面データv2 `official`検証に合格する。
-- 全解法を再生できる。
-- 同じseedで同じ盤面と解法を返す。
-- seed変化でvariantを変えられる。
-- 未対応profileを推測生成しない。
-- solver上限時に候補を返さない。
+GitHub Actions Run #37:
+
+```text
+Node tests and diff check: success
+Browser gate: success
+```
+
+- Node全189件成功。
+- 失敗0、skip 0。
+- `git diff --check`成功。
+- generator v2局所7件成功。
+- 全7profileの厳密最短を確認。
+- 全7profileが盤面データv2 `official`検証に合格。
+- 全7profileの解法再生に成功。
+- 同じseedの盤面、解法、variant、探索件数が一致。
+- 未対応profileの推測生成を拒否。
+- solver上限時に候補盤面を返さない。
+- 320×568 WebKit成功。
+- 390×844 WebKit成功。
+- 1280×720 Chromium成功。
+- Browser evidence artifact保存成功。
+- 全profile厳密検査は約9.0秒、Node全体は約10.0秒。
 
 ## P3-03の限界
 
@@ -187,7 +199,7 @@ P3-03は公開中の`generator.js`、試作盤面バンク、UIへ接続しな�
 
 ## 次の作業
 
-P3-03のNode・Browser Gateと人間レビュー完了後、最新`main`から開始する。
+Pull Request #17の人間レビュー・統合後、最新`main`から開始する。
 
 ```text
 P3-04: 品質指標と1000件以上の候補検査
