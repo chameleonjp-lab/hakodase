@@ -87,22 +87,19 @@ jobs:
           HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
-          if git diff --quiet -- \
+          git add \
             src/data/p3-05-review-pack.json \
             docs/review/P3_05_PLAYTEST_RECORDS.json \
             docs/review/P3_05_PLAYTEST_SHEET.csv \
-            docs/review/P3_05_REVIEW_PACK_SUMMARY.md; then
+            docs/review/P3_05_REVIEW_PACK_SUMMARY.md
+
+          if git diff --cached --quiet; then
             echo 'Committed P3-05 review fixtures already match.'
             exit 0
           fi
 
           git config user.name 'hakodase-p3-05-bot'
           git config user.email 'actions@users.noreply.github.com'
-          git add \
-            src/data/p3-05-review-pack.json \
-            docs/review/P3_05_PLAYTEST_RECORDS.json \
-            docs/review/P3_05_PLAYTEST_SHEET.csv \
-            docs/review/P3_05_REVIEW_PACK_SUMMARY.md
           git diff --cached --check
           git commit -m 'data: add P3-05 review fixtures'
           git push origin "HEAD:${HEAD_BRANCH}"
