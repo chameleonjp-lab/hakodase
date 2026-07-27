@@ -14,7 +14,6 @@ concurrency:
 
 jobs:
   apply:
-    if: ${{ hashFiles('.github/p3-03r-payload.b64') != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -26,7 +25,18 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
+      - name: Confirm payload exists
+        id: payload
+        shell: bash
+        run: |
+          if [[ -f .github/p3-03r-payload.b64 ]]; then
+            echo 'exists=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Decode and verify payload
+        if: steps.payload.outputs.exists == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -34,6 +44,7 @@ jobs:
           echo '1667287117d9760b6b24275328cc85b02d3ea2995c2393c6c30c1552b8529cf3  /tmp/p3-03r-payload.tgz' | sha256sum --check -
 
       - name: Apply files and remove temporary transport
+        if: steps.payload.outputs.exists == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -42,6 +53,7 @@ jobs:
           rm -f .github/workflows/dev-source-bundle.yml
 
       - name: Commit and push implementation
+        if: steps.payload.outputs.exists == 'true'
         shell: bash
         run: |
           set -euo pipefail
