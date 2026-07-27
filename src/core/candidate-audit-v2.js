@@ -20,6 +20,14 @@ export const P3_04_AUDIT_DEFAULTS = Object.freeze({
   progressInterval: 25,
 });
 
+export const P3_03R_AUDIT_REQUIREMENTS = Object.freeze({
+  minInspectedCandidates: 1001,
+  maxGenerationFailures: 0,
+  maxHardRejects: 0,
+  minEligibleUniqueStructures: 60,
+  minEligibleUniqueStructuresPerProfile: 5,
+});
+
 function defaultNow() {
   return globalThis.performance?.now?.() ?? Date.now();
 }
@@ -65,8 +73,11 @@ function freezeRecord(record) {
 function profileSummary(rows, profile) {
   const profileRows = rows.filter((row) => row.profileId === profile.id);
   const generated = profileRows.filter((row) => row.generationSuccess);
+  const eligible = generated.filter((row) => row.qualityStatus !== 'reject');
   const boardHashes = new Set(generated.map((row) => row.boardHash));
   const structureHashes = new Set(generated.map((row) => row.structureHash));
+  const eligibleBoardHashes = new Set(eligible.map((row) => row.boardHash));
+  const eligibleStructureHashes = new Set(eligible.map((row) => row.structureHash));
 
   return freezeRecord({
     profileId: profile.id,
@@ -79,8 +90,11 @@ function profileSummary(rows, profile) {
     candidate: generated.filter((row) => row.qualityStatus === 'candidate').length,
     review: generated.filter((row) => row.qualityStatus === 'review').length,
     reject: generated.filter((row) => row.qualityStatus === 'reject').length,
+    eligible: eligible.length,
     uniqueBoardHashes: boardHashes.size,
     uniqueStructureHashes: structureHashes.size,
+    eligibleUniqueBoardHashes: eligibleBoardHashes.size,
+    eligibleUniqueStructureHashes: eligibleStructureHashes.size,
     boardHashUniqueRatio: round(boardHashes.size / Math.max(1, generated.length)),
     structureUniqueRatio: round(structureHashes.size / Math.max(1, generated.length)),
     optimalSwipes: numericSummary(generated.map((row) => row.metrics.optimalSwipes)),
@@ -102,8 +116,11 @@ export function summarizeCandidateAuditV2(rows, options = {}) {
   const profiles = options.profiles ?? listGeneratorV2Profiles();
   const generated = rows.filter((row) => row.generationSuccess);
   const failed = rows.filter((row) => !row.generationSuccess);
+  const eligible = generated.filter((row) => row.qualityStatus !== 'reject');
   const boardHashes = new Set(generated.map((row) => row.boardHash));
   const structureHashes = new Set(generated.map((row) => row.structureHash));
+  const eligibleBoardHashes = new Set(eligible.map((row) => row.boardHash));
+  const eligibleStructureHashes = new Set(eligible.map((row) => row.structureHash));
   const hardRejectReasonCounts = {};
   const reviewFlagCounts = {};
   const generationFailureReasonCounts = {};
@@ -122,12 +139,16 @@ export function summarizeCandidateAuditV2(rows, options = {}) {
     candidateCount: generated.filter((row) => row.qualityStatus === 'candidate').length,
     reviewCount: generated.filter((row) => row.qualityStatus === 'review').length,
     rejectCount: generated.filter((row) => row.qualityStatus === 'reject').length,
+    eligibleCount: eligible.length,
     uniqueBoardHashCount: boardHashes.size,
     duplicateBoardHashCount: Math.max(0, generated.length - boardHashes.size),
     boardHashUniqueRatio: round(boardHashes.size / Math.max(1, generated.length)),
     uniqueStructureHashCount: structureHashes.size,
     structuralDuplicateCount: Math.max(0, generated.length - structureHashes.size),
     structureUniqueRatio: round(structureHashes.size / Math.max(1, generated.length)),
+    eligibleUniqueBoardHashCount: eligibleBoardHashes.size,
+    eligibleUniqueStructureHashCount: eligibleStructureHashes.size,
+    eligibleStructureUniqueRatio: round(eligibleStructureHashes.size / Math.max(1, eligible.length)),
     hardRejectReasonCounts: Object.freeze({ ...hardRejectReasonCounts }),
     reviewFlagCounts: Object.freeze({ ...reviewFlagCounts }),
     generationFailureReasonCounts: Object.freeze({ ...generationFailureReasonCounts }),
@@ -143,6 +164,43 @@ export function summarizeCandidateAuditV2(rows, options = {}) {
     dominantColorRate: numericSummary(generated.map((row) => row.metrics.dominantColorRate)),
     solverNodes: numericSummary(generated.map((row) => row.solver.nodesExpanded)),
     solverDurationMs: numericSummary(generated.map((row) => row.solver.durationMs)),
+  });
+}
+
+export function evaluateP303RAuditAcceptanceV2(
+  summary,
+  requirements = P3_03R_AUDIT_REQUIREMENTS,
+) {
+  if (!summary || typeof summary !== 'object') throw new TypeError('summary must be an object');
+  const failures = [];
+
+  if (summary.inspectedCandidateCount < requirements.minInspectedCandidates) {
+    failures.push(`inspected-candidates:${summary.inspectedCandidateCount}<${requirements.minInspectedCandidates}`);
+  }
+  if (summary.generationFailureCount > requirements.maxGenerationFailures) {
+    failures.push(`generation-failures:${summary.generationFailureCount}>${requirements.maxGenerationFailures}`);
+  }
+  if (summary.rejectCount > requirements.maxHardRejects) {
+    failures.push(`hard-rejects:${summary.rejectCount}>${requirements.maxHardRejects}`);
+  }
+  if (summary.eligibleUniqueStructureHashCount < requirements.minEligibleUniqueStructures) {
+    failures.push(`eligible-structures:${summary.eligibleUniqueStructureHashCount}<${requirements.minEligibleUniqueStructures}`);
+  }
+
+  const profileFailures = [];
+  for (const profile of summary.profiles ?? []) {
+    if (profile.eligibleUniqueStructureHashes < requirements.minEligibleUniqueStructuresPerProfile) {
+      profileFailures.push(
+        `${profile.profileId}:${profile.eligibleUniqueStructureHashes}<${requirements.minEligibleUniqueStructuresPerProfile}`,
+      );
+    }
+  }
+  if (profileFailures.length > 0) failures.push(`profile-structures:${profileFailures.join(',')}`);
+
+  return Object.freeze({
+    passed: failures.length === 0,
+    failures: Object.freeze(failures),
+    requirements: Object.freeze({ ...requirements }),
   });
 }
 
@@ -251,6 +309,10 @@ export function runCandidateAuditV2(options = {}) {
     profiles,
     requestedCandidateCount: candidateCount,
   });
+  const acceptance = evaluateP303RAuditAcceptanceV2(
+    summary,
+    options.acceptanceRequirements ?? P3_03R_AUDIT_REQUIREMENTS,
+  );
 
   return freezeRecord({
     auditVersion: P3_04_AUDIT_VERSION,
@@ -259,6 +321,7 @@ export function runCandidateAuditV2(options = {}) {
     screeningRules: Object.freeze({ ...(options.screeningRules ?? P3_04_SCREENING_RULES) }),
     durationMs: Math.max(0, now() - startedAt),
     summary,
+    acceptance,
     rows: Object.freeze(rows),
   });
 }

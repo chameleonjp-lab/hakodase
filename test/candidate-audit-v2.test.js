@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  evaluateP303RAuditAcceptanceV2,
   runCandidateAuditV2,
   summarizeCandidateAuditV2,
 } from '../src/core/candidate-audit-v2.js';
@@ -130,4 +131,40 @@ test('注入した軽量依存で1001件の監査経路を完走する', () => {
   assert.equal(report.summary.candidateCount, 1001);
   assert.equal(report.rows.length, 1001);
   assert.equal(progressCount, 11);
+});
+
+test('P3-03R受け入れ判定は全体60構造・各profile5構造・reject0を要求する', () => {
+  const passingSummary = {
+    inspectedCandidateCount: 1001,
+    generationFailureCount: 0,
+    rejectCount: 0,
+    eligibleUniqueStructureHashCount: 66,
+    profiles: [
+      { profileId: 'p0', eligibleUniqueStructureHashes: 33 },
+      { profileId: 'p1', eligibleUniqueStructureHashes: 33 },
+    ],
+  };
+  const passed = evaluateP303RAuditAcceptanceV2(passingSummary, {
+    minInspectedCandidates: 1001,
+    maxGenerationFailures: 0,
+    maxHardRejects: 0,
+    minEligibleUniqueStructures: 60,
+    minEligibleUniqueStructuresPerProfile: 5,
+  });
+  assert.equal(passed.passed, true);
+  assert.deepEqual(passed.failures, []);
+
+  const failed = evaluateP303RAuditAcceptanceV2({
+    ...passingSummary,
+    rejectCount: 1,
+    eligibleUniqueStructureHashCount: 59,
+    profiles: [
+      { profileId: 'p0', eligibleUniqueStructureHashes: 4 },
+      { profileId: 'p1', eligibleUniqueStructureHashes: 55 },
+    ],
+  }, passed.requirements);
+  assert.equal(failed.passed, false);
+  assert.ok(failed.failures.some((entry) => entry.startsWith('hard-rejects:')));
+  assert.ok(failed.failures.some((entry) => entry.startsWith('eligible-structures:')));
+  assert.ok(failed.failures.some((entry) => entry.includes('p0:4<5')));
 });
