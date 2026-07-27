@@ -26,22 +26,32 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Confirm payload exists
+      - name: Confirm all payload parts exist
         id: payload
         shell: bash
         run: |
-          if [[ -f .github/p3-03r-payload.b64 ]]; then
-            echo 'exists=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'exists=false' >> "$GITHUB_OUTPUT"
-          fi
+          set -euo pipefail
+          exists=true
+          for part in 00 01 02 03; do
+            if [[ ! -f ".github/p3-03r-payload.part${part}" ]]; then
+              exists=false
+            fi
+          done
+          echo "exists=$exists" >> "$GITHUB_OUTPUT"
 
-      - name: Decode and verify payload
+      - name: Assemble, decode, and verify payload
         if: steps.payload.outputs.exists == 'true'
         shell: bash
         run: |
           set -euo pipefail
-          base64 --decode .github/p3-03r-payload.b64 > /tmp/p3-03r-payload.tgz
+          cat \
+            .github/p3-03r-payload.part00 \
+            .github/p3-03r-payload.part01 \
+            .github/p3-03r-payload.part02 \
+            .github/p3-03r-payload.part03 \
+            > /tmp/p3-03r-payload.b64
+          echo 'f8673fffd0eb9cabd50b2c85becf2858359aca3bc3df6bcf732dd3453b812e07  /tmp/p3-03r-payload.b64' | sha256sum --check -
+          base64 --decode /tmp/p3-03r-payload.b64 > /tmp/p3-03r-payload.tgz
           echo '1667287117d9760b6b24275328cc85b02d3ea2995c2393c6c30c1552b8529cf3  /tmp/p3-03r-payload.tgz' | sha256sum --check -
 
       - name: Apply files and remove temporary transport
@@ -51,6 +61,10 @@ jobs:
           set -euo pipefail
           tar -xzf /tmp/p3-03r-payload.tgz -C .
           rm -f .github/p3-03r-payload.b64
+          rm -f .github/p3-03r-payload.part00
+          rm -f .github/p3-03r-payload.part01
+          rm -f .github/p3-03r-payload.part02
+          rm -f .github/p3-03r-payload.part03
           rm -f .github/workflows/dev-source-bundle.yml
 
       - name: Commit and push implementation
