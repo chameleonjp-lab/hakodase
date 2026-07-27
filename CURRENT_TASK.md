@@ -11,7 +11,7 @@ P3-01盤面データv2とP3-02厳密ソルバーを使い、8〜14箱・3〜6色
 - 基準内容: Pull Request #16統合後のP3-02完了地点
 - 作業ブランチ: `agent/hakodase-p3-03-generator-v2`
 - Pull Request base: `main`
-- Pull Request: 作成前
+- Pull Request: #17
 
 ## 今回の一目的
 
@@ -125,19 +125,33 @@ GENERATOR_V2_PROFILES
 
 ## 自動検証
 
-追加テスト:
+GitHub Actions Run #37:
 
-- profile一覧が8〜14箱を1箱刻みで覆う。
-- 色数3〜6を覆う。
-- 全profileに同色複数箱がある。
-- 全profileをP3-02で厳密に解く。
-- 全profileが20〜35操作である。
-- `official` profileとhash検査に合格する。
-- 解法列を再生できる。
-- 同じseedで同じ盤面・解法・variantを返す。
-- seed変化でvariantと盤面内容を変えられる。
-- 未対応profileを推測生成しない。
-- solver上限到達時に候補を返さない。
+```text
+Node tests and diff check: success
+Browser gate: success
+```
+
+確認結果:
+
+- Node全189件成功。
+- 失敗0、skip 0。
+- `git diff --check`成功。
+- generator v2局所7件成功。
+- 箱数8〜14を1箱刻みで確認。
+- 色数3〜6と同色複数箱を確認。
+- 全7profileの厳密最短が20、21、24、25、28、29、26操作であることを確認。
+- 全7profileが盤面データv2 `official`検証に合格。
+- 全7profileの解法再生に成功。
+- 同じseedの盤面・解法・variant・探索件数が一致。
+- 未対応profileを推測生成しないことを確認。
+- solver上限時に候補盤面を返さないことを確認。
+- 320×568 WebKit成功。
+- 390×844 WebKit成功。
+- 1280×720 Chromium成功。
+- Browser evidence artifact保存成功。
+
+全profileをまとめて厳密検査するテストは約9.0秒、Node全体は約10.0秒だった。
 
 ## 完了条件
 
@@ -151,8 +165,8 @@ GENERATOR_V2_PROFILES
 - [x] 解法再生失敗を拒否する。
 - [x] `official` profile不合格を拒否する。
 - [x] 上限停止時に候補を返さない。
-- [ ] リポジトリ全Nodeテストが成功する。
-- [ ] Browser Gateが成功する。
+- [x] リポジトリ全Nodeテスト189件が成功した。
+- [x] Browser Gateが成功した。
 - [ ] 人間レビューが完了する。
 
 ## 既知の制限
@@ -179,7 +193,7 @@ Three.js / WebGL
 
 ## 次工程
 
-P3-03の自動Gateと人間レビュー完了後、最新`main`から開始する。
+Pull Request #17の人間レビュー・統合後、最新`main`から開始する。
 
 ```text
 P3-04: 初手分岐・直行箱・壁利用率・誤手/詰み指標と1000件検査
