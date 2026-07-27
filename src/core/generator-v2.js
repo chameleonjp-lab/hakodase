@@ -1,6 +1,6 @@
-// HAKODASE P3-03 候補生成器v2。
-// 7×9の経路scaffoldをseedで変換し、P3-02厳密ソルバーで20〜35操作を確認した盤面だけを返す。
-// 開発時・候補検査時専用。公開ゲームの開始処理や描画ループから呼ばない。
+// HAKODASE P3-03R 候補生成器v3。
+// 66件の独立した経路テンプレートをseedで選び、P3-02厳密ソルバーの基礎証明を
+// 反転・色置換へ写像する。公開ゲームの開始処理や描画ループからは呼ばない。
 
 import {
   BOARD_PROFILES,
@@ -15,8 +15,12 @@ import {
   verifyExactSolutionV2,
 } from './exact-solver-v2.js';
 import { hashSeed, makeRng } from './rng.js';
+import { GENERATOR_V3_TEMPLATE_CATALOG } from './generator-v3-catalog.js';
+import { proveTemplateExactly } from './generator-v3-proof.js';
 
-export const GENERATOR_V2_VERSION = 'route-scaffold/2.0.0';
+export const GENERATOR_V3_VERSION = 'route-catalog/3.0.0';
+// 既存の開発APIとの互換性を保つ別名。新規文書ではGENERATOR_V3_VERSIONを正本とする。
+export const GENERATOR_V2_VERSION = GENERATOR_V3_VERSION;
 export const GENERATOR_V2_TARGET = Object.freeze({
   minOptimalSwipes: 20,
   maxOptimalSwipes: 35,
@@ -34,68 +38,35 @@ export const GENERATOR_V2_DEFAULTS = Object.freeze({
 const WIDTH = 7;
 const HEIGHT = 9;
 const TRANSFORMS = Object.freeze(['identity', 'mirrorX', 'mirrorY', 'rotate180']);
+const DIRECTION_TRANSFORM = Object.freeze({
+  identity: Object.freeze({ up: 'up', down: 'down', left: 'left', right: 'right' }),
+  mirrorX: Object.freeze({ up: 'up', down: 'down', left: 'right', right: 'left' }),
+  mirrorY: Object.freeze({ up: 'down', down: 'up', left: 'left', right: 'right' }),
+  rotate180: Object.freeze({ up: 'down', down: 'up', left: 'right', right: 'left' }),
+});
 
-function freezePath(path) {
-  return Object.freeze(path.map(([x, y]) => Object.freeze([x, y])));
-}
-
-function route(id, path, gate) {
-  return Object.freeze({
-    id,
-    path: freezePath(path),
-    gate: Object.freeze({ side: gate.side, line: gate.line }),
-  });
-}
-
-const U4_L2 = Object.freeze([
-  route('u', [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [4, 1], [4, 2], [5, 2], [6, 2]], { side: 'right', line: 2 }),
-  route('l-a', [[1, 4], [1, 3], [1, 2], [0, 2]], { side: 'left', line: 2 }),
-  route('l-b', [[1, 8], [1, 7], [1, 6], [0, 6]], { side: 'left', line: 6 }),
+const PROFILE_DEFINITIONS = Object.freeze([
+  Object.freeze({ id: 'b08c3', boxCount: 8, colorCount: 3, expectedOptimalSwipes: 20 }),
+  Object.freeze({ id: 'b09c3', boxCount: 9, colorCount: 3, expectedOptimalSwipes: 21 }),
+  Object.freeze({ id: 'b10c4', boxCount: 10, colorCount: 4, expectedOptimalSwipes: 24 }),
+  Object.freeze({ id: 'b11c4', boxCount: 11, colorCount: 4, expectedOptimalSwipes: 25 }),
+  Object.freeze({ id: 'b12c5', boxCount: 12, colorCount: 5, expectedOptimalSwipes: 28 }),
+  Object.freeze({ id: 'b13c5', boxCount: 13, colorCount: 5, expectedOptimalSwipes: 29 }),
+  Object.freeze({ id: 'b14c6', boxCount: 14, colorCount: 6, expectedOptimalSwipes: 28 }),
 ]);
 
-const U4_L3 = Object.freeze([
-  ...U4_L2,
-  route('l-c', [[5, 6], [5, 5], [5, 4], [6, 4]], { side: 'right', line: 4 }),
-]);
+const PROFILE_BY_ID = new Map(PROFILE_DEFINITIONS.map((profile) => [profile.id, profile]));
+const TEMPLATE_BY_ID = new Map(GENERATOR_V3_TEMPLATE_CATALOG.map((template) => [template.id, template]));
+const TEMPLATES_BY_PROFILE = new Map(PROFILE_DEFINITIONS.map((profile) => [
+  profile.id,
+  Object.freeze(GENERATOR_V3_TEMPLATE_CATALOG.filter((template) => template.profileId === profile.id)),
+]));
+const DEFAULT_PROOF_CACHE = new Map();
 
-const U4_L4 = Object.freeze([
-  route('u', [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 4], [2, 4], [2, 3], [2, 2], [2, 1], [2, 0]], { side: 'top', line: 2 }),
-  route('l-a', [[1, 8], [1, 7], [1, 6], [0, 6]], { side: 'left', line: 6 }),
-  route('l-b', [[5, 5], [5, 4], [5, 3], [6, 3]], { side: 'right', line: 3 }),
-  route('l-c', [[6, 1], [5, 1], [4, 1], [4, 0]], { side: 'top', line: 4 }),
-  route('l-d', [[5, 7], [4, 7], [3, 7], [3, 8]], { side: 'bottom', line: 3 }),
-]);
-
-const SIX_L = Object.freeze([
-  route('l-a', [[1, 5], [1, 4], [1, 3], [0, 3]], { side: 'left', line: 3 }),
-  route('l-b', [[5, 5], [5, 4], [5, 3], [6, 3]], { side: 'right', line: 3 }),
-  route('l-c', [[2, 1], [1, 1], [0, 1], [0, 0]], { side: 'top', line: 0 }),
-  route('l-d', [[6, 1], [5, 1], [4, 1], [4, 0]], { side: 'top', line: 4 }),
-  route('l-e', [[2, 7], [1, 7], [0, 7], [0, 8]], { side: 'bottom', line: 0 }),
-  route('l-f', [[6, 7], [5, 7], [4, 7], [4, 8]], { side: 'bottom', line: 4 }),
-]);
-
-function profile(id, boxCount, colorCount, expectedOptimalSwipes, routes, counts, shuffleGroups = []) {
-  return Object.freeze({
-    id,
-    boxCount,
-    colorCount,
-    expectedOptimalSwipes,
-    routes,
-    counts: Object.freeze([...counts]),
-    shuffleGroups: Object.freeze(shuffleGroups.map((group) => Object.freeze([...group]))),
-  });
-}
-
-export const GENERATOR_V2_PROFILES = Object.freeze([
-  profile('b08c3', 8, 3, 20, U4_L2, [4, 2, 2], [[1, 2]]),
-  profile('b09c3', 9, 3, 21, U4_L2, [4, 3, 2], [[1, 2]]),
-  profile('b10c4', 10, 4, 24, U4_L3, [4, 2, 2, 2], [[1, 2, 3]]),
-  profile('b11c4', 11, 4, 25, U4_L3, [4, 3, 2, 2], [[1, 2, 3]]),
-  profile('b12c5', 12, 5, 28, U4_L4, [4, 2, 2, 2, 2], [[1, 2, 3, 4]]),
-  profile('b13c5', 13, 5, 29, U4_L4, [4, 3, 2, 2, 2], [[1, 2, 3, 4]]),
-  profile('b14c6', 14, 6, 26, SIX_L, [3, 3, 2, 2, 2, 2], [[0, 1, 2, 3, 4, 5]]),
-]);
+export const GENERATOR_V2_PROFILES = Object.freeze(PROFILE_DEFINITIONS.map((profile) => Object.freeze({
+  ...profile,
+  templateCount: TEMPLATES_BY_PROFILE.get(profile.id).length,
+})));
 
 function shuffle(values, rng) {
   const copy = [...values];
@@ -106,15 +77,12 @@ function shuffle(values, rng) {
   return copy;
 }
 
-function assignCounts(profileDefinition, rng) {
-  const counts = [...profileDefinition.counts];
-  for (const group of profileDefinition.shuffleGroups) {
-    const values = shuffle(group.map((index) => counts[index]), rng);
-    group.forEach((index, valueIndex) => {
-      counts[index] = values[valueIndex];
-    });
+function readPositiveInteger(value, fallback, name) {
+  const resolved = value ?? fallback;
+  if (!Number.isInteger(resolved) || resolved < 1) {
+    throw new TypeError(`${name} must be an integer >= 1`);
   }
-  return counts;
+  return resolved;
 }
 
 function transformPoint(transform, x, y) {
@@ -144,55 +112,47 @@ function transformGate(transform, gate) {
   return { side: gate.side, line: gate.line };
 }
 
+function transformDirection(transform, direction) {
+  const mapped = DIRECTION_TRANSFORM[transform]?.[direction];
+  if (!mapped) throw new TypeError(`unsupported direction ${direction} for ${transform}`);
+  return mapped;
+}
+
 function chooseProfiles(options) {
-  return GENERATOR_V2_PROFILES.filter((entry) => (
+  return PROFILE_DEFINITIONS.filter((entry) => (
     (options.profileId == null || entry.id === options.profileId)
     && (options.boxCount == null || entry.boxCount === options.boxCount)
     && (options.colorCount == null || entry.colorCount === options.colorCount)
   ));
 }
 
-function readPositiveInteger(value, fallback, name, { allowZero = false } = {}) {
-  const resolved = value ?? fallback;
-  const minimum = allowZero ? 0 : 1;
-  if (!Number.isInteger(resolved) || resolved < minimum) {
-    throw new TypeError(`${name} must be an integer >= ${minimum}`);
-  }
-  return resolved;
-}
-
 function createColorPermutation(colorCount, rng) {
   return shuffle(Array.from({ length: colorCount }, (_, index) => index), rng);
 }
 
-function provisionalPuzzleId(profileId, seedHash, attempt) {
-  return `cand-${profileId}-${seedHash.toString(16).padStart(8, '0')}-a${String(attempt).padStart(2, '0')}`;
+function provisionalPuzzleId(profileId, templateId, seedHash, attempt) {
+  return `cand-${profileId}-${templateId.slice(-3)}-${seedHash.toString(16).padStart(8, '0')}-a${String(attempt).padStart(2, '0')}`;
 }
 
-function contentPuzzleId(profileId, boardHash) {
-  return `cand-${profileId}-${boardHash.slice('sha256:'.length, 'sha256:'.length + 20)}`;
+function contentPuzzleId(profileId, templateId, boardHash) {
+  return `cand-${profileId}-${templateId.slice(-3)}-${boardHash.slice('sha256:'.length, 'sha256:'.length + 16)}`;
 }
 
-function buildDraft(profileDefinition, seedHash, attempt) {
-  const derivedSeed = (seedHash ^ Math.imul(attempt + 1, 0x9e3779b1)) >>> 0;
-  const rng = makeRng(derivedSeed);
-  const transform = TRANSFORMS[rng.int(TRANSFORMS.length)];
-  const counts = assignCounts(profileDefinition, rng);
-  const colorPermutation = createColorPermutation(profileDefinition.colorCount, rng);
+function buildDraft(template, transform, colorPermutation, seedHash, attempt) {
   const openCells = new Set();
   const blocks = [];
   const gates = [];
+  const laneByCell = new Map();
   let blockNumber = 0;
 
-  profileDefinition.routes.forEach((routeDefinition, routeIndex) => {
-    const color = colorPermutation[routeIndex];
-    const count = counts[routeIndex];
-    if (!Number.isInteger(count) || count < 1 || count > routeDefinition.path.length - 1) {
-      throw new RangeError(`profile ${profileDefinition.id} route ${routeDefinition.id} has invalid count ${count}`);
-    }
-
-    const transformedPath = routeDefinition.path.map(([x, y]) => transformPoint(transform, x, y));
+  template.routes.forEach((route, routeIndex) => {
+    const transformedPath = route.path.map(([x, y]) => transformPoint(transform, x, y));
     for (const point of transformedPath) openCells.add(`${point.x},${point.y}`);
+
+    const count = template.counts[routeIndex];
+    if (!Number.isInteger(count) || count < 1 || count >= transformedPath.length) {
+      throw new RangeError(`template ${template.id} route ${routeIndex} has invalid count ${count}`);
+    }
 
     for (let offset = 0; offset < count; offset++) {
       const point = transformedPath[offset];
@@ -202,17 +162,28 @@ function buildDraft(profileDefinition, seedHash, attempt) {
         y: point.y,
         w: 1,
         h: 1,
-        color,
+        color: colorPermutation[routeIndex],
       });
     }
 
-    const gate = transformGate(transform, routeDefinition.gate);
+    const gate = transformGate(transform, route.gate);
     gates.push({
       id: `g${String(routeIndex).padStart(2, '0')}`,
       side: gate.side,
       line: gate.line,
-      color,
+      color: colorPermutation[routeIndex],
     });
+
+    for (const lane of route.lanes ?? []) {
+      const point = transformPoint(transform, lane.x, lane.y);
+      const direction = transformDirection(transform, lane.direction);
+      const cell = `${point.x},${point.y}`;
+      const previous = laneByCell.get(cell);
+      if (previous && previous !== direction) {
+        throw new TypeError(`template ${template.id} has conflicting lane at ${cell}`);
+      }
+      laneByCell.set(cell, direction);
+    }
   });
 
   const walls = [];
@@ -222,32 +193,86 @@ function buildDraft(profileDefinition, seedHash, attempt) {
     }
   }
 
-  const draft = {
+  const lanes = [...laneByCell.entries()]
+    .sort(([left], [right]) => left.localeCompare(right, 'en'))
+    .map(([cell, direction], index) => {
+      const [x, y] = cell.split(',').map(Number);
+      return { id: `l${String(index).padStart(2, '0')}`, x, y, direction };
+    });
+
+  return {
     schemaVersion: BOARD_SCHEMA_VERSION,
     rulesVersion: BOARD_RULES_VERSION,
     generatorVersion: GENERATOR_V2_VERSION,
-    puzzleId: provisionalPuzzleId(profileDefinition.id, seedHash, attempt),
+    puzzleId: provisionalPuzzleId(template.profileId, template.id, seedHash, attempt),
     boardHash: null,
     width: WIDTH,
     height: HEIGHT,
     blocks,
     walls,
     gates,
-    lanes: [],
+    lanes,
     shutters: [],
     expectedOptimalSwipes: null,
   };
+}
 
-  return Object.freeze({
-    draft,
-    variant: Object.freeze({
-      profileId: profileDefinition.id,
-      transform,
-      counts: Object.freeze(counts),
-      colorPermutation: Object.freeze(colorPermutation),
-      derivedSeed,
-    }),
+function identityPermutation(colorCount) {
+  return Array.from({ length: colorCount }, (_, index) => index);
+}
+
+function buildStructuralBoard(template, transform, colorPermutation, seedHash, attempt) {
+  let structural = materializeBoardDataV2(
+    buildDraft(template, transform, colorPermutation, seedHash, attempt),
+    { profile: BOARD_PROFILES.STRUCTURAL },
+  );
+  structural = materializeBoardDataV2({
+    ...structural,
+    puzzleId: contentPuzzleId(template.profileId, template.id, structural.boardHash),
+    boardHash: null,
+  }, { profile: BOARD_PROFILES.STRUCTURAL });
+  return structural;
+}
+
+function transformSolution(solution, transform, colorPermutation) {
+  return Object.freeze(solution.map((action) => Object.freeze({
+    ...action,
+    color: colorPermutation[action.color],
+    from: Object.freeze(transformPoint(transform, action.from.x, action.from.y)),
+    direction: transformDirection(transform, action.direction),
+  })));
+}
+
+function baseProof(template, solverOptions, useDefaultCache) {
+  if (useDefaultCache && DEFAULT_PROOF_CACHE.has(template.id)) {
+    return Object.freeze({ ...DEFAULT_PROOF_CACHE.get(template.id), cacheHit: true });
+  }
+
+  const profile = PROFILE_BY_ID.get(template.profileId);
+  const structural = buildStructuralBoard(
+    template,
+    'identity',
+    identityPermutation(profile.colorCount),
+    hashSeed(`proof:${template.id}`),
+    0,
+  );
+  const solver = proveTemplateExactly(template, solverOptions);
+  if (!solver.solved || !solver.exact || solver.optimalSwipes !== template.expectedOptimalSwipes) {
+    const proof = Object.freeze({ ok: false, structural, solver, cacheHit: false });
+    if (useDefaultCache) DEFAULT_PROOF_CACHE.set(template.id, proof);
+    return proof;
+  }
+
+  const verification = verifyExactSolutionV2(boardDataV2ToRuntime(structural), solver.solution);
+  const proof = Object.freeze({
+    ok: verification.valid && verification.cleared,
+    structural,
+    solver,
+    verification,
+    cacheHit: false,
   });
+  if (useDefaultCache) DEFAULT_PROOF_CACHE.set(template.id, proof);
+  return proof;
 }
 
 function generationFailure(seed, attempts, failures, reason = 'attempts-exhausted') {
@@ -265,92 +290,102 @@ function generationFailure(seed, attempts, failures, reason = 'attempts-exhauste
 }
 
 export function listGeneratorV2Profiles() {
-  return GENERATOR_V2_PROFILES.map((entry) => Object.freeze({
-    id: entry.id,
-    boxCount: entry.boxCount,
-    colorCount: entry.colorCount,
-    expectedOptimalSwipes: entry.expectedOptimalSwipes,
-  }));
+  return GENERATOR_V2_PROFILES.map((entry) => Object.freeze({ ...entry }));
+}
+
+export function listGeneratorV3Templates(profileId = null) {
+  return GENERATOR_V3_TEMPLATE_CATALOG
+    .filter((template) => profileId == null || template.profileId === profileId)
+    .map((template) => Object.freeze({
+      id: template.id,
+      profileId: template.profileId,
+      expectedOptimalSwipes: template.expectedOptimalSwipes,
+      routeCount: template.routes.length,
+      usesLanes: template.routes.some((route) => route.lanes.length > 0),
+    }));
+}
+
+export function clearGeneratorV3ProofCache() {
+  DEFAULT_PROOF_CACHE.clear();
 }
 
 export function generateCandidateBoardV2(options = {}) {
   const seed = options.seed ?? Date.now();
   const seedHash = hashSeed(seed);
   const maxAttempts = readPositiveInteger(options.maxAttempts, GENERATOR_V2_DEFAULTS.maxAttempts, 'maxAttempts');
-  const eligibleProfiles = chooseProfiles(options);
-  if (eligibleProfiles.length === 0) {
-    return generationFailure(seed, 0, [], 'unsupported-profile');
+  const requestedTemplate = options.templateId == null ? null : TEMPLATE_BY_ID.get(String(options.templateId));
+  if (options.templateId != null && !requestedTemplate) {
+    return generationFailure(seed, 0, [], 'unsupported-template');
   }
+  const eligibleProfiles = chooseProfiles(options).filter((profile) => (
+    requestedTemplate == null || profile.id === requestedTemplate.profileId
+  ));
+  if (eligibleProfiles.length === 0) return generationFailure(seed, 0, [], 'unsupported-profile');
 
   const solverOptions = {
     ...GENERATOR_V2_DEFAULTS.solver,
     ...(options.solver ?? {}),
   };
+  const useDefaultCache = options.solver == null;
   const failures = [];
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const profileDefinition = eligibleProfiles[(seedHash + attempt) % eligibleProfiles.length];
-    let built;
+    const profile = eligibleProfiles[(seedHash + attempt) % eligibleProfiles.length];
+    const templates = requestedTemplate ? [requestedTemplate] : TEMPLATES_BY_PROFILE.get(profile.id);
+    const templateHash = hashSeed(`${seed}|${profile.id}|${attempt}|${GENERATOR_V2_VERSION}`);
+    const template = templates[templateHash % templates.length];
+    const rng = makeRng(templateHash ^ 0x85ebca6b);
+    const transform = TRANSFORMS[rng.int(TRANSFORMS.length)];
+    const colorPermutation = createColorPermutation(profile.colorCount, rng);
+
+    let proof;
     try {
-      built = buildDraft(profileDefinition, seedHash, attempt);
+      proof = baseProof(template, solverOptions, useDefaultCache);
     } catch (error) {
-      failures.push({ attempt, profileId: profileDefinition.id, reason: 'build-error', detail: error.message });
+      failures.push({ attempt, profileId: profile.id, templateId: template.id, reason: 'proof-error', detail: error.message });
+      continue;
+    }
+    if (!proof.ok) {
+      failures.push({
+        attempt,
+        profileId: profile.id,
+        templateId: template.id,
+        reason: `solver-${proof.solver.reason}`,
+        nodesExpanded: proof.solver.nodesExpanded,
+        uniqueStates: proof.solver.uniqueStates,
+      });
       continue;
     }
 
     let structural;
     try {
-      structural = materializeBoardDataV2(built.draft, { profile: BOARD_PROFILES.STRUCTURAL });
-      structural = materializeBoardDataV2({
-        ...structural,
-        puzzleId: contentPuzzleId(profileDefinition.id, structural.boardHash),
-        boardHash: null,
-      }, { profile: BOARD_PROFILES.STRUCTURAL });
+      structural = buildStructuralBoard(template, transform, colorPermutation, seedHash, attempt);
     } catch (error) {
-      failures.push({ attempt, profileId: profileDefinition.id, reason: 'structural-invalid', detail: error.message });
+      failures.push({ attempt, profileId: profile.id, templateId: template.id, reason: 'structural-invalid', detail: error.message });
       continue;
     }
 
-    const solver = solveBoardDataV2(structural, solverOptions);
-    if (!solver.solved || !solver.exact || !Number.isInteger(solver.optimalSwipes)) {
-      failures.push({
-        attempt,
-        profileId: profileDefinition.id,
-        reason: `solver-${solver.reason}`,
-        nodesExpanded: solver.nodesExpanded,
-        uniqueStates: solver.uniqueStates,
-      });
-      continue;
-    }
-    if (solver.optimalSwipes < GENERATOR_V2_TARGET.minOptimalSwipes
-        || solver.optimalSwipes > GENERATOR_V2_TARGET.maxOptimalSwipes) {
-      failures.push({
-        attempt,
-        profileId: profileDefinition.id,
-        reason: 'outside-target',
-        optimalSwipes: solver.optimalSwipes,
-      });
-      continue;
-    }
-    if (solver.optimalSwipes !== profileDefinition.expectedOptimalSwipes) {
-      failures.push({
-        attempt,
-        profileId: profileDefinition.id,
-        reason: 'profile-proof-mismatch',
-        expected: profileDefinition.expectedOptimalSwipes,
-        actual: solver.optimalSwipes,
-      });
-      continue;
-    }
-
-    const runtimeBoard = boardDataV2ToRuntime(structural);
-    const verification = verifyExactSolutionV2(runtimeBoard, solver.solution);
+    const solution = transformSolution(proof.solver.solution, transform, colorPermutation);
+    const verification = verifyExactSolutionV2(boardDataV2ToRuntime(structural), solution);
     if (!verification.valid || !verification.cleared) {
       failures.push({
         attempt,
-        profileId: profileDefinition.id,
+        profileId: profile.id,
+        templateId: template.id,
         reason: 'solution-verification-failed',
         detail: verification.reason,
+      });
+      continue;
+    }
+
+    if (template.expectedOptimalSwipes < GENERATOR_V2_TARGET.minOptimalSwipes
+        || template.expectedOptimalSwipes > GENERATOR_V2_TARGET.maxOptimalSwipes) {
+      failures.push({
+        attempt,
+        profileId: profile.id,
+        templateId: template.id,
+        reason: 'outside-target',
+        optimalSwipes: template.expectedOptimalSwipes,
       });
       continue;
     }
@@ -360,10 +395,10 @@ export function generateCandidateBoardV2(options = {}) {
       boardData = materializeBoardDataV2({
         ...structural,
         boardHash: null,
-        expectedOptimalSwipes: solver.optimalSwipes,
+        expectedOptimalSwipes: template.expectedOptimalSwipes,
       }, { profile: BOARD_PROFILES.OFFICIAL });
     } catch (error) {
-      failures.push({ attempt, profileId: profileDefinition.id, reason: 'official-invalid', detail: error.message });
+      failures.push({ attempt, profileId: profile.id, templateId: template.id, reason: 'official-invalid', detail: error.message });
       continue;
     }
 
@@ -374,12 +409,22 @@ export function generateCandidateBoardV2(options = {}) {
     if (!finalValidation.valid) {
       failures.push({
         attempt,
-        profileId: profileDefinition.id,
+        profileId: profile.id,
+        templateId: template.id,
         reason: 'official-validation-failed',
         detail: finalValidation.errors.map((entry) => entry.code).join(','),
       });
       continue;
     }
+
+    const solver = Object.freeze({
+      ...proof.solver,
+      solution,
+      proofSource: 'catalog-template',
+      proofTemplateId: template.id,
+      proofReused: proof.cacheHit,
+      proofTransformInvariant: true,
+    });
 
     return Object.freeze({
       success: true,
@@ -388,9 +433,16 @@ export function generateCandidateBoardV2(options = {}) {
       attempts: attempt + 1,
       failures: Object.freeze(failures.map((entry) => Object.freeze({ ...entry }))),
       boardData,
-      solution: solver.solution,
+      solution,
       solver,
-      variant: built.variant,
+      variant: Object.freeze({
+        profileId: profile.id,
+        templateId: template.id,
+        transform,
+        colorPermutation: Object.freeze(colorPermutation),
+        derivedSeed: templateHash,
+        usesLanes: template.routes.some((route) => route.lanes.length > 0),
+      }),
     });
   }
 

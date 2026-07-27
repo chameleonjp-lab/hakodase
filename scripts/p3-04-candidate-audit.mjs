@@ -13,6 +13,7 @@ function readArguments(argv) {
     count: P3_04_AUDIT_DEFAULTS.candidateCount,
     outputDirectory: 'audit-output/p3-04',
     seedPrefix: P3_04_AUDIT_DEFAULTS.seedPrefix,
+    requireP303R: false,
   };
 
   for (let index = 0; index < argv.length; index++) {
@@ -20,6 +21,7 @@ function readArguments(argv) {
     if (argument === '--count') options.count = Number(argv[++index]);
     else if (argument === '--out-dir') options.outputDirectory = argv[++index];
     else if (argument === '--seed-prefix') options.seedPrefix = argv[++index];
+    else if (argument === '--require-p3-03r') options.requireP303R = true;
     else if (argument === '--help' || argument === '-h') options.help = true;
     else throw new TypeError(`Unknown argument: ${argument}`);
   }
@@ -50,8 +52,12 @@ function counterLines(counter) {
 
 function buildMarkdown(report) {
   const summary = report.summary;
+  const acceptance = report.acceptance;
+  const acceptanceFailures = acceptance.failures.length === 0
+    ? 'failures: none'
+    : `failures: ${acceptance.failures.join(' | ')}`;
   const profileRows = summary.profiles.map((profile) => (
-    `| \`${profile.profileId}\` | ${profile.attempted} | ${profile.generated} | ${profile.candidate} | ${profile.review} | ${profile.reject} | ${profile.uniqueBoardHashes} | ${profile.uniqueStructureHashes} | ${formatNumber(profile.initialLegalActions.mean)} | ${formatNumber(profile.initialDirectExitBlocks.mean)} | ${formatPercent(profile.decisionStepRate.mean)} | ${formatPercent(profile.wallUtilizationRate.mean)} |`
+    `| \`${profile.profileId}\` | ${profile.attempted} | ${profile.generated} | ${profile.candidate} | ${profile.review} | ${profile.reject} | ${profile.eligibleUniqueStructureHashes} | ${profile.uniqueBoardHashes} | ${profile.uniqueStructureHashes} | ${formatNumber(profile.initialLegalActions.mean)} | ${formatNumber(profile.initialDirectExitBlocks.mean)} | ${formatPercent(profile.decisionStepRate.mean)} | ${formatPercent(profile.wallUtilizationRate.mean)} |`
   )).join('\n');
 
   return `# HAKODASE P3-04 候補監査結果
@@ -78,6 +84,8 @@ durationMs: ${Math.round(report.durationMs)}
 | candidate | ${summary.candidateCount} |
 | review | ${summary.reviewCount} |
 | reject | ${summary.rejectCount} |
+| hard rule通過 | ${summary.eligibleCount} |
+| 通過後の一意structureHash | ${summary.eligibleUniqueStructureHashCount} |
 | 一意boardHash | ${summary.uniqueBoardHashCount} |
 | boardHash重複 | ${summary.duplicateBoardHashCount} |
 | boardHash一意率 | ${formatPercent(summary.boardHashUniqueRatio)} |
@@ -97,8 +105,8 @@ durationMs: ${Math.round(report.durationMs)}
 
 ## profile別
 
-| profile | 試行 | 成功 | candidate | review | reject | 一意board | 一意構造 | 初手平均 | 直行箱平均 | 判断手率 | 壁利用率 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| profile | 試行 | 成功 | candidate | review | reject | 通過後一意構造 | 一意board | 一意構造 | 初手平均 | 直行箱平均 | 判断手率 | 壁利用率 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 ${profileRows}
 
 ## hard reject理由
@@ -121,6 +129,13 @@ ${counterLines(summary.generationFailureReasonCounts)}
 - \`structureHash\`: 色番号、箱ID、左右・上下反転、180度回転を正規化した構造識別子。
 - 誤手・詰み指標は、代表解法の各状態で代表手以外を1手だけ試し、直後に合法手0件となる割合である。将来まで探索した完全詰み率ではない。
 
+## P3-03R受け入れ判定
+
+\`\`\`text
+passed: ${acceptance.passed}
+${acceptanceFailures}
+\`\`\`
+
 ## 次の扱い
 
 この結果を根拠にP3-03生成器を補修するか、P3-05へ渡す候補の選別条件を固定する。1000件以上の監査結果と人間試遊を混同しない。
@@ -136,7 +151,7 @@ function csvCell(value) {
 
 function buildCsv(report) {
   const columns = [
-    'index', 'seed', 'profileId', 'generationSuccess', 'generationReason', 'attempts',
+    'index', 'seed', 'profileId', 'templateId', 'generationSuccess', 'generationReason', 'attempts',
     'boardHash', 'structureHash', 'boardHashDuplicateOf', 'structureHashDuplicateOf',
     'qualityStatus', 'hardRejectReasons', 'reviewFlags', 'optimalSwipes',
     'initialLegalActionCount', 'initialMovableBlockCount', 'initialDirectExitBlockCount',
@@ -167,6 +182,7 @@ function buildCsv(report) {
       solverNodes: row.solver?.nodesExpanded,
       solverUniqueStates: row.solver?.uniqueStates,
       solverDurationMs: row.solver?.durationMs,
+      templateId: row.variant?.templateId,
       transform: row.variant?.transform,
       counts: row.variant?.counts,
       colorPermutation: row.variant?.colorPermutation,
@@ -177,7 +193,7 @@ function buildCsv(report) {
 }
 
 function printHelp() {
-  console.log(`Usage: node scripts/p3-04-candidate-audit.mjs [options]\n\nOptions:\n  --count <n>         Candidate count (default: ${P3_04_AUDIT_DEFAULTS.candidateCount})\n  --out-dir <path>    Output directory (default: audit-output/p3-04)\n  --seed-prefix <s>   Deterministic seed prefix\n`);
+  console.log(`Usage: node scripts/p3-04-candidate-audit.mjs [options]\n\nOptions:\n  --count <n>         Candidate count (default: ${P3_04_AUDIT_DEFAULTS.candidateCount})\n  --out-dir <path>    Output directory (default: audit-output/p3-04)\n  --seed-prefix <s>   Deterministic seed prefix\n  --require-p3-03r    Exit non-zero unless P3-03R acceptance passes\n`);
 }
 
 async function main() {
@@ -209,6 +225,10 @@ async function main() {
 
   if (report.summary.inspectedCandidateCount !== options.count
       || report.summary.generatedCount + report.summary.generationFailureCount !== options.count) {
+    process.exitCode = 1;
+  }
+  if (options.requireP303R && !report.acceptance.passed) {
+    console.error(`P3-03R acceptance failed: ${report.acceptance.failures.join(' | ')}`);
     process.exitCode = 1;
   }
 }
