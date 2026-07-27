@@ -9,6 +9,7 @@ import {
   listGeneratorV3Templates,
 } from '../src/core/generator-v2.js';
 import { GENERATOR_V3_TEMPLATE_CATALOG } from '../src/core/generator-v3-catalog.js';
+import { templateUsesGlobalProof } from '../src/core/generator-v3-proof.js';
 import { verifyExactSolutionV2 } from '../src/core/exact-solver-v2.js';
 import { analyzeCandidateQualityV2 } from '../src/core/quality-metrics-v2.js';
 
@@ -51,6 +52,7 @@ test('66件すべてが厳密20〜35操作・直行箱0・一意構造である'
     assert.equal(generated.solver.exact, true, template.id);
     assert.equal(generated.solver.optimalSwipes, template.expectedOptimalSwipes, template.id);
     assert.ok(generated.solver.optimalSwipes >= 20 && generated.solver.optimalSwipes <= 35, template.id);
+    assert.equal(generated.solver.proofMode, templateUsesGlobalProof(template) ? 'global' : 'components', template.id);
     assert.deepEqual(
       verifyExactSolutionV2(boardDataV2ToRuntime(generated.boardData), generated.solution),
       { valid: true, cleared: true, failedAt: null, reason: null },

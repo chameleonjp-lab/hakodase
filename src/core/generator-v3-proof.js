@@ -1,5 +1,6 @@
-// P3-03R exact proof for disconnected route templates.
-// Each route is isolated by walls, so the global optimum is the exact sum of component optima.
+// P3-03R exact proof for verified route templates.
+// Geometrically isolated routes are proved component-by-component. Templates with
+// cross-route adjacency are proved as one full board with the P3-02 exact solver.
 
 import {
   BOARD_PROFILES,
@@ -12,6 +13,7 @@ import { solveBoardDataV2 } from './exact-solver-v2.js';
 const WIDTH = 7;
 const HEIGHT = 9;
 const GENERATOR_VERSION = 'route-catalog/3.0.0';
+const CARDINALS = Object.freeze([[1, 0], [-1, 0], [0, 1], [0, -1]]);
 
 function nowDefault() {
   return globalThis.performance?.now?.() ?? Date.now();
@@ -23,12 +25,11 @@ function routeBlockOffset(template, routeIndex) {
   return offset;
 }
 
-function buildComponentBoard(template, routeIndex) {
+function routeBlocks(template, routeIndex) {
   const route = template.routes[routeIndex];
   const count = template.counts[routeIndex];
   const blockOffset = routeBlockOffset(template, routeIndex);
-  const openCells = new Set(route.path.map(([x, y]) => `${x},${y}`));
-  const blocks = route.path.slice(0, count).map(([x, y], index) => ({
+  return route.path.slice(0, count).map(([x, y], index) => ({
     id: `b${String(blockOffset + index).padStart(2, '0')}`,
     x,
     y,
@@ -36,42 +37,116 @@ function buildComponentBoard(template, routeIndex) {
     h: 1,
     color: routeIndex,
   }));
+}
+
+function wallsOutside(openCells) {
   const walls = [];
   for (let y = 0; y < HEIGHT; y++) {
     for (let x = 0; x < WIDTH; x++) {
       if (!openCells.has(`${x},${y}`)) walls.push({ x, y });
     }
   }
-  const lanes = (route.lanes ?? []).map((lane, index) => ({
-    id: `l${String(index).padStart(2, '0')}`,
-    x: lane.x,
-    y: lane.y,
-    direction: lane.direction,
-  }));
+  return walls;
+}
 
+function materializeProofBoard(template, suffix, blocks, openCells, gates, lanes) {
   return materializeBoardDataV2({
     schemaVersion: BOARD_SCHEMA_VERSION,
     rulesVersion: BOARD_RULES_VERSION,
     generatorVersion: GENERATOR_VERSION,
-    puzzleId: `proof-${template.id}-r${routeIndex}`,
+    puzzleId: `proof-${template.id}-${suffix}`,
     boardHash: null,
     width: WIDTH,
     height: HEIGHT,
     blocks,
-    walls,
-    gates: [{
-      id: `g${String(routeIndex).padStart(2, '0')}`,
-      side: route.gate.side,
-      line: route.gate.line,
-      color: routeIndex,
-    }],
+    walls: wallsOutside(openCells),
+    gates,
     lanes,
     shutters: [],
     expectedOptimalSwipes: null,
   }, { profile: BOARD_PROFILES.STRUCTURAL });
 }
 
-function failure(reason, startedAt, now, template, metrics = {}) {
+function buildComponentBoard(template, routeIndex) {
+  const route = template.routes[routeIndex];
+  const openCells = new Set(route.path.map(([x, y]) => `${x},${y}`));
+  const lanes = (route.lanes ?? []).map((lane, index) => ({
+    id: `l${String(index).padStart(2, '0')}`,
+    x: lane.x,
+    y: lane.y,
+    direction: lane.direction,
+  }));
+  return materializeProofBoard(
+    template,
+    `r${routeIndex}`,
+    routeBlocks(template, routeIndex),
+    openCells,
+    [{
+      id: `g${String(routeIndex).padStart(2, '0')}`,
+      side: route.gate.side,
+      line: route.gate.line,
+      color: routeIndex,
+    }],
+    lanes,
+  );
+}
+
+function buildFullBoard(template) {
+  const blocks = [];
+  const gates = [];
+  const openCells = new Set();
+  const laneByCell = new Map();
+
+  template.routes.forEach((route, routeIndex) => {
+    for (const [x, y] of route.path) openCells.add(`${x},${y}`);
+    blocks.push(...routeBlocks(template, routeIndex));
+    gates.push({
+      id: `g${String(routeIndex).padStart(2, '0')}`,
+      side: route.gate.side,
+      line: route.gate.line,
+      color: routeIndex,
+    });
+    for (const lane of route.lanes ?? []) {
+      const cell = `${lane.x},${lane.y}`;
+      const previous = laneByCell.get(cell);
+      if (previous && previous !== lane.direction) {
+        throw new TypeError(`template ${template.id} has conflicting lane at ${cell}`);
+      }
+      laneByCell.set(cell, lane.direction);
+    }
+  });
+
+  const lanes = [...laneByCell.entries()]
+    .sort(([left], [right]) => left.localeCompare(right, 'en'))
+    .map(([cell, direction], index) => {
+      const [x, y] = cell.split(',').map(Number);
+      return { id: `l${String(index).padStart(2, '0')}`, x, y, direction };
+    });
+  return materializeProofBoard(template, 'global', blocks, openCells, gates, lanes);
+}
+
+function routesAreGeometricallyIsolated(template) {
+  const ownerByCell = new Map();
+  for (let routeIndex = 0; routeIndex < template.routes.length; routeIndex++) {
+    for (const [x, y] of template.routes[routeIndex].path) {
+      const cell = `${x},${y}`;
+      const previous = ownerByCell.get(cell);
+      if (previous != null && previous !== routeIndex) return false;
+      ownerByCell.set(cell, routeIndex);
+    }
+  }
+
+  for (const [cell, routeIndex] of ownerByCell) {
+    const [x, y] = cell.split(',').map(Number);
+    for (const [dx, dy] of CARDINALS) {
+      const adjacentOwner = ownerByCell.get(`${x + dx},${y + dy}`);
+      if (adjacentOwner != null && adjacentOwner !== routeIndex) return false;
+    }
+  }
+  return true;
+}
+
+function failure(reason, startedAt, now, template, metrics = {}, proofMode = 'components') {
   return Object.freeze({
     solved: false,
     exact: false,
@@ -85,12 +160,23 @@ function failure(reason, startedAt, now, template, metrics = {}) {
     frontierPeak: metrics.frontierPeak ?? 0,
     lowerBound: metrics.lowerBound ?? null,
     symmetryReduced: true,
-    decomposed: true,
+    decomposed: proofMode === 'components',
+    proofMode,
     componentCount: template.routes.length,
   });
 }
 
-export function proveTemplateExactly(template, solverOptions) {
+function proveFullBoard(template, solverOptions) {
+  const result = solveBoardDataV2(buildFullBoard(template), solverOptions);
+  return Object.freeze({
+    ...result,
+    decomposed: false,
+    proofMode: 'global',
+    componentCount: template.routes.length,
+  });
+}
+
+function proveIsolatedComponents(template, solverOptions) {
   const now = typeof solverOptions.now === 'function' ? solverOptions.now : nowDefault;
   const startedAt = now();
   const maxNodes = solverOptions.maxNodes;
@@ -153,6 +239,17 @@ export function proveTemplateExactly(template, solverOptions) {
     lowerBound,
     symmetryReduced: true,
     decomposed: true,
+    proofMode: 'components',
     componentCount: template.routes.length,
   });
+}
+
+export function proveTemplateExactly(template, solverOptions) {
+  return routesAreGeometricallyIsolated(template)
+    ? proveIsolatedComponents(template, solverOptions)
+    : proveFullBoard(template, solverOptions);
+}
+
+export function templateUsesGlobalProof(template) {
+  return !routesAreGeometricallyIsolated(template);
 }
