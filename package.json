@@ -8,7 +8,8 @@
     "dev": "node scripts/dev-server.mjs",
     "test": "node --test test/*.test.js",
     "test:browser": "playwright test",
-    "test:browser:report": "playwright show-report"
+    "test:browser:report": "playwright show-report",
+    "audit:p3-04": "node scripts/p3-04-candidate-audit.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1"
