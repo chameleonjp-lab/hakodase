@@ -24,9 +24,10 @@
 | P2-06-B1 | 非自明盤面暫定修正 | 統合済み・暫定 | Pull Request #14。4箱8〜12操作の試作盤面 |
 | P3-01 | 盤面データv2・版管理 | 統合済み・自動Gate合格 | Pull Request #15 |
 | P3-02 | 厳密ソルバーv2 | 統合済み・自動Gate合格 | Pull Request #16。Node全182件、3環境Browser Gate成功 |
-| P3-03 | 生成器v2 | 統合済み・自動Gate合格 | Pull Request #17。8〜14箱、3〜6色、厳密20〜35操作を証明 |
-| P3-04 | 品質指標・1001件監査 | 実装中 | 指標、structureHash、監査CLI、専用workflowを追加。CI・1001件結果待ち |
-| P3-05 | 試遊済み公式問題集 | 未着手 | 自動条件通過候補を人間試遊し採否を記録 |
+| P3-03 | 生成器v2 | 統合済み・自動Gate合格・品質BLOCKER | Pull Request #17。厳密20〜35操作は達成したがP3-04で初期直行・構造不足を確認 |
+| P3-04 | 品質指標・1001件監査 | 監査完了・文書同期後CI/レビュー待ち | Pull Request #18。1001件完走。P3-03Rが必要と判断 |
+| P3-03R | 生成器v2補修 | 未着手 | 初期直行箱0、構造数増加、再監査が必要 |
+| P3-05 | 試遊済み公式問題集 | 進行禁止 | P3-03Rと再監査が終わるまで開始しない |
 | P3-06 | 本日の出荷 | 未着手 | 検証済み問題集から決定論的に選択 |
 
 ## P3-01 完了内容
@@ -52,8 +53,6 @@ expectedOptimalSwipes
 expectedOptimalSwipes 20〜35
 ```
 
-盤面の挙動と初期状態を正規化し、SHA-256 `boardHash`で識別する。
-
 ## P3-02 完了内容
 
 - 1スライド1コストの厳密幅優先探索。
@@ -62,17 +61,8 @@ expectedOptimalSwipes 20〜35
 - 解法再生と既存`rules.js`との差分試験。
 - ノード、状態、深さ、時間、中断の上限。
 - 上限停止時は`optimalSwipes: null`。
-- 8箱、11箱、14箱fixture。
 
-GitHub Actions:
-
-```text
-Node tests and diff check: success
-Browser gate: success
-Node全182件、失敗0、skip 0
-```
-
-## P3-03 完了内容
+## P3-03 完了内容と限界
 
 生成版:
 
@@ -90,90 +80,45 @@ route-scaffold/2.0.0
 | `b13c5` | 13 | 5 | 29 |
 | `b14c6` | 14 | 6 | 26 |
 
-候補ごとに盤面データv2、SHA-256 `boardHash`、P3-02厳密解、20〜35操作、解法再生、`official` profileを検査する。
+厳密最短、解法再生、盤面データv2、同一seed決定性は自動Gateで確認済みである。
 
-Pull Request #17の最終Gate:
+ただし、P3-04で次を確認した。
 
-```text
-Node tests and diff check: success
-Browser gate: success
-Node全189件、失敗0、skip 0
-```
+- 4profileが初期直行箱を必ず持つ。
+- hard rule通過候補の構造が3種類しかない。
+- 反転と色置換で見かけ上の件数が増えている。
 
-P3-03候補はまだ公式問題ではない。scaffold、全体反転、色置換だけでは構造上同じ問題になる場合があり、14箱profileには初期直行箱が存在しうる。
+したがってP3-03候補を公式問題へ昇格しない。
 
 ## P3-04 実装内容
 
 ### 品質指標
 
 ```text
-initialLegalActionCount
-initialMovableBlockCount
-initialDirectExitActionCount
-initialDirectExitBlockCount
-initialOccupancyRate
-branchingByStep
-solutionDecisionStepRate
-solutionForcedStepRate
-offRouteAlternativeCount
-immediateDeadEndAlternativeRate
-wallUtilizationRate
-sameBlockRepeatRate
-maxSameBlockRun
-dominantDirectionRate
-dominantColorRate
+初手合法操作
+初期可動箱
+初期直行箱
+代表解法上の分岐と判断手率
+代表手以外の代替手
+即時詰み代替率
+壁利用率
+同箱反復
+方向偏り
+色偏り
 ```
 
-### 誤手・詰みの範囲
+### 重複識別
 
-代表最短解法の各状態で代表手以外を1手だけ適用し、未退場箱が残るのに直後の合法操作が0件となるものを`即時詰み`と数える。
+- `boardHash`: 盤面データv2の正式内容識別子。
+- `structureHash`: 色番号、箱ID、左右・上下反転、180度回転を正規化した監査用識別子。
 
-数手後の詰み、別の最短解法、最短ではないが解ける手までは区別しない。
-
-### structureHash
-
-`boardHash`とは別に、監査用の構造識別子を追加する。
-
-正規化:
+### 監査基盤
 
 ```text
-箱IDと搬出口IDを除外
-搬出口位置順で色番号を振り直す
-同色箱を座標順へ並べる
-左右反転・上下反転・180度回転を同一視
-```
-
-`structureHash`はランキングや公開問題IDに使用しない。
-
-### 暫定screening
-
-hard reject:
-
-```text
-no-initial-legal-action
-initial-direct-exit
-```
-
-review flag:
-
-```text
-low-initial-branching
-low-decision-density
-low-wall-utilization
-high-same-block-repeat
-high-direction-bias
-high-color-bias
-```
-
-判定は`candidate / review / reject`とする。閾値は1001件結果を見るための暫定値であり、P3-05採用条件としてまだ確定しない。
-
-### 1001件監査
-
-```bash
-npm run audit:p3-04 -- \
-  --count 1001 \
-  --seed-prefix p3-04-audit-v1 \
-  --out-dir audit-output/p3-04
+src/core/quality-metrics-v2.js
+src/core/candidate-audit-v2.js
+scripts/p3-04-candidate-audit.mjs
+.github/workflows/p3-04-candidate-audit.yml
 ```
 
 出力:
@@ -185,36 +130,101 @@ summary.md
 audit-output.log
 ```
 
-専用workflow:
+## 1001件監査結果
+
+GitHub Actions Run:
 
 ```text
-.github/workflows/p3-04-candidate-audit.yml
+30236109244
 ```
 
-- 通常のNode・Browser Gateから分離。
-- timeout 60分。
-- artifact 30日保持。
-- rejectやreviewの多さではjobを失敗させない。
-- 1001件を最後まで処理し、証拠を保存できたかを処理成功条件とする。
+Artifact:
 
-## P3-04で残る確認
+```text
+hakodase-p3-04-audit-1
+ID: 8642009680
+digest: sha256:e4e8693941557e1aacea173d0b9b26bf6e74b73ba06503c4f4bdad8c4859ffb9
+```
 
-- リポジトリ全Nodeテスト。
-- `git diff --check`。
-- 320×568 WebKit。
-- 390×844 WebKit。
-- 1280×720 Chromium。
-- 1001件専用audit job。
-- audit artifactのJSON・CSV・Markdown。
-- summaryのGitHub文書化。
-- P3-03生成器補修の要否判断。
-- 人間レビュー。
+処理結果:
+
+```text
+requested: 1001
+inspected: 1001
+generated: 1001
+failed: 0
+duration: 約23分51秒
+```
+
+品質結果:
+
+```text
+candidate: 429
+review: 0
+reject: 572
+unique boardHash: 656
+unique structureHash: 27
+```
+
+reject理由:
+
+```text
+initial-direct-exit: 572
+```
+
+profile別の初期直行箱:
+
+```text
+b08c3: 0
+b09c3: 1
+b10c4: 0
+b11c4: 1
+b12c5: 0
+b13c5: 1
+b14c6: 2
+```
+
+hard rule通過429件の一意`structureHash`:
+
+```text
+3
+```
+
+正本報告:
+
+```text
+docs/reports/P3_04_AUDIT_1001_SUMMARY.md
+docs/decisions/P3_04_AUDIT_RESULT_DECISION.md
+```
+
+## P3-04判定
+
+```text
+監査処理: 合格
+P3-03候補品質: 不合格
+P3-05への移行: 禁止
+次工程: P3-03R
+```
+
+## P3-03R暫定受け入れ条件
+
+```text
+1001件生成完走
+全profileで初期直行箱0
+hard rule通過候補の一意structureHash 60件以上
+各profileで一意structureHash 5件以上
+全件厳密最短20〜35操作
+同一seedの決定性維持
+未検証フォールバック禁止
+```
+
+60構造は、P3-05で30問以上を人間試遊・選別するための最低2倍の候補数として置く暫定値である。
 
 ## 公開版との関係
 
 現在Codebergで遊べる盤面はPull Request #14の4箱・8〜12操作の暫定版である。
 
-P3-04は公開中の`generator.js`、試作盤面バンク、UIへ接続しない。正式問題はP3-04とP3-05を通過後、P3-06で本日の出荷へ接続する。
+P3-03R、再監査、P3-05が完了するまで、P3-03候補を公開中の`generator.js`、本日の出荷、公式ランキングへ接続しない。
 
 ## 残る実機・設定確認
 
@@ -227,14 +237,8 @@ P3-04は公開中の`generator.js`、試作盤面バンク、UIへ接続しな�
 
 ## 次の作業
 
-1001件監査で構造上のBLOCKERが見つかった場合:
+Pull Request #18のレビュー・統合後、最新`main`から開始する。
 
 ```text
 P3-03R: 生成器v2補修
-```
-
-監査でP3-05へ渡せる候補が確認された場合:
-
-```text
-P3-05: 人間試遊と公式問題集
 ```
