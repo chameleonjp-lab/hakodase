@@ -121,7 +121,8 @@ async function main() {
   }
 
   const records = pack.candidates.map(createEmptyP305PlaytestRecord);
-  const packText = `${JSON.stringify(pack, null, 2)}\n`;
+  // 候補パックは機械読取用のため1行JSONにして、リポジトリ差分と公開物サイズを抑える。
+  const packText = `${JSON.stringify(pack)}\n`;
   const recordsText = `${JSON.stringify({
     schemaVersion: 'hakodase.playtest-record-set/1',
     packVersion: pack.packVersion,
