@@ -23,11 +23,11 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: hakodase-p3-05-review-pack-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-review-pack:
@@ -36,12 +36,8 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Checkout review branch
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
-          fetch-depth: 0
-          persist-credentials: true
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -61,51 +57,18 @@ jobs:
             --require-count 66 \
             2>&1 | tee review-output.log
 
-      - name: Prepare committed review fixtures
+      - name: Verify committed review fixtures
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p docs/review
-          rm -f src/data/p3-05-review-pack.json
-          rmdir src/data 2>/dev/null || true
-          cp review-output/p3-05/review-pack.json docs/review/P3_05_REVIEW_PACK.json
-          cp review-output/p3-05/playtest-records.json docs/review/P3_05_PLAYTEST_RECORDS.json
-          cp review-output/p3-05/playtest-sheet.csv docs/review/P3_05_PLAYTEST_SHEET.csv
-          cp review-output/p3-05/summary.md docs/review/P3_05_REVIEW_PACK_SUMMARY.md
-
-      - name: Verify deterministic committed files
-        shell: bash
-        run: |
-          set -euo pipefail
+          test -f docs/review/P3_05_REVIEW_PACK.json
+          test -f docs/review/P3_05_PLAYTEST_RECORDS.json
+          test -f docs/review/P3_05_PLAYTEST_SHEET.csv
+          test -f docs/review/P3_05_REVIEW_PACK_SUMMARY.md
           cmp review-output/p3-05/review-pack.json docs/review/P3_05_REVIEW_PACK.json
           cmp review-output/p3-05/playtest-records.json docs/review/P3_05_PLAYTEST_RECORDS.json
           cmp review-output/p3-05/playtest-sheet.csv docs/review/P3_05_PLAYTEST_SHEET.csv
           cmp review-output/p3-05/summary.md docs/review/P3_05_REVIEW_PACK_SUMMARY.md
-
-      - name: Commit generated review fixtures
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        shell: bash
-        env:
-          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
-        run: |
-          set -euo pipefail
-          git add -A \
-            src/data \
-            docs/review/P3_05_REVIEW_PACK.json \
-            docs/review/P3_05_PLAYTEST_RECORDS.json \
-            docs/review/P3_05_PLAYTEST_SHEET.csv \
-            docs/review/P3_05_REVIEW_PACK_SUMMARY.md
-
-          if git diff --cached --quiet; then
-            echo 'Committed P3-05 review fixtures already match.'
-            exit 0
-          fi
-
-          git config user.name 'hakodase-p3-05-bot'
-          git config user.email 'actions@users.noreply.github.com'
-          git diff --cached --check
-          git commit -m 'data: update P3-05 review fixtures'
-          git push origin "HEAD:${HEAD_BRANCH}"
 
       - name: Add review summary
         if: always()
