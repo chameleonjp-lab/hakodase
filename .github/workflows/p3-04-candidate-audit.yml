@@ -52,7 +52,7 @@ jobs:
 
           if [[ "$EVENT_NAME" == "pull_request" && "$EVENT_ACTION" == "synchronize" && -n "$BEFORE_SHA" && -n "$HEAD_SHA" ]]; then
             git diff --name-only "$BEFORE_SHA" "$HEAD_SHA" > p3-03r-changed-files.txt
-            if grep -Eq '^(src/core/(quality-metrics-v2|candidate-audit-v2|generator-v2|generator-v3-catalog|generator-v3-proof|exact-solver-v2|board-data-v2|board-hash|rules|rng)\.js|scripts/p3-04-candidate-audit\.mjs|package(-lock)?\.json)$' p3-03r-changed-files.txt; then
+            if grep -Eq '^(src/core/(quality-metrics-v2|candidate-audit-v2|generator-v2|generator-v3-catalog|generator-v3-proof|exact-solver-v2|board-data-v2|board-hash|rules|rng)\.js|scripts/p3-04-candidate-audit\.mjs|package(-lock)?\.json|\.github/workflows/p3-04-candidate-audit\.yml)$' p3-03r-changed-files.txt; then
               run_audit=true
             else
               run_audit=false
@@ -72,7 +72,7 @@ jobs:
           {
             echo '# P3-03R full audit skipped'
             echo
-            echo 'The latest synchronize event changed only documentation, reports, tests, or workflow metadata.'
+            echo 'The latest synchronize event changed only documentation, reports, or tests.'
             echo 'The previous successful 1001-candidate P3-03R artifact remains the evidence for the unchanged audit runtime sources.'
           } >> "$GITHUB_STEP_SUMMARY"
 
