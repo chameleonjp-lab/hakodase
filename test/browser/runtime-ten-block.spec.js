@@ -10,6 +10,7 @@ test('本日の出荷は10箱・4色・目安24操作で開始する', async ({ 
   await page.locator('#playerNameInput').fill('10箱確認');
   await page.locator('#nameForm button[type="submit"]').click();
 
+  await expect(page.locator('body')).toHaveAttribute('data-app-state', 'playing', { timeout: 10_000 });
   await expect.poll(async () => page.evaluate(() => window.hakodase?.engine?.board?.blocks?.length ?? 0), {
     timeout: 10_000,
   }).toBe(10);
