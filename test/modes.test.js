@@ -22,3 +22,10 @@ test('本日の出荷だけが厳格時計を使う', () => {
   assert.equal(getGameMode(GAME_MODES.ENDLESS).strictClock, false);
   assert.equal(getGameMode(GAME_MODES.PRACTICE).strictClock, false);
 });
+
+test('通常2モードは10箱、練習だけは2箱と案内する', () => {
+  assert.match(getGameMode(GAME_MODES.DAILY).description, /10箱/);
+  assert.match(getGameMode(GAME_MODES.ENDLESS).description, /10箱/);
+  assert.match(getGameMode(GAME_MODES.PRACTICE).description, /2箱/);
+  assert.match(getGameMode(GAME_MODES.PRACTICE).description, /通常プレイは10箱/);
+});
