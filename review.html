@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0e13" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>HAKODASE 試遊レビュー</title>
+  <link rel="stylesheet" href="styles/review.css" />
+</head>
+<body>
+  <header class="review-header">
+    <div>
+      <p class="eyebrow">P3-05B / 開発者用</p>
+      <h1>HAKODASE 試遊レビュー</h1>
+      <p class="header-note">固定した66候補を実機で遊び、採用・修正・不採用を記録します。</p>
+    </div>
+    <a class="text-link" href="./">通常ゲームへ</a>
+  </header>
+
+  <p id="reviewLoading" class="loading-message" role="status">候補データを読み込んでいます…</p>
+  <p id="reviewFatal" class="fatal-message" role="alert" hidden></p>
+
+  <main id="reviewApp" class="review-app" hidden>
+    <section class="panel progress-panel" aria-labelledby="progressTitle">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">進み具合</p>
+          <h2 id="progressTitle"><span id="progressComplete">0</span> / <span id="progressTotal">66</span> 完了</h2>
+        </div>
+        <button id="nextPending" class="btn btn-primary" type="button">次の未評価</button>
+      </div>
+      <div class="progress-track" aria-hidden="true"><span id="progressBar"></span></div>
+      <div class="progress-counts" aria-label="判断別件数">
+        <span>採用 <strong id="progressAccept">0</strong></span>
+        <span>修正 <strong id="progressRevise">0</strong></span>
+        <span>不採用 <strong id="progressReject">0</strong></span>
+        <span>保留 <strong id="progressPending">66</strong></span>
+      </div>
+    </section>
+
+    <section class="panel candidate-panel" aria-labelledby="candidateTitle">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">候補選択</p>
+          <h2 id="candidateTitle">候補 <span id="candidatePosition">1 / 66</span></h2>
+        </div>
+        <span id="candidateDecisionBadge" class="decision-badge" data-decision="pending">保留</span>
+      </div>
+
+      <div class="field-grid compact-fields">
+        <label>箱数・色数
+          <select id="profileFilter">
+            <option value="all">すべて</option>
+          </select>
+        </label>
+        <label>候補
+          <select id="candidateSelect"></select>
+        </label>
+      </div>
+
+      <div class="nav-row">
+        <button id="previousCandidate" class="btn" type="button">前へ</button>
+        <button id="nextCandidate" class="btn" type="button">次へ</button>
+      </div>
+
+      <dl class="candidate-meta">
+        <div><dt>構造</dt><dd id="candidateTemplate">—</dd></div>
+        <div><dt>条件</dt><dd id="candidateProfile">—</dd></div>
+        <div><dt>厳密最短</dt><dd id="candidateOptimal">—</dd></div>
+        <div><dt>一方通行床</dt><dd id="candidateLanes">—</dd></div>
+        <div class="wide"><dt>レビューID</dt><dd id="candidateReviewId">—</dd></div>
+      </dl>
+    </section>
+
+    <section class="panel play-panel" aria-labelledby="playTitle">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">実機試遊</p>
+          <h2 id="playTitle">盤面を遊ぶ</h2>
+        </div>
+        <span id="playStatus" class="play-status">開始前</span>
+      </div>
+
+      <div class="play-stats" aria-label="試遊状況">
+        <span>時間 <strong id="reviewTime">0.00秒</strong></span>
+        <span>操作 <strong id="reviewSwipes">0</strong></span>
+        <span>残り <strong id="reviewRemaining">—</strong></span>
+        <span>戻す <strong id="reviewUndoCount">0</strong></span>
+      </div>
+
+      <div class="review-board-wrap">
+        <canvas id="reviewBoard" aria-label="試遊盤面"></canvas>
+      </div>
+
+      <div class="play-actions">
+        <button id="reviewStart" class="btn btn-primary" type="button">試遊開始</button>
+        <button id="reviewUndo" class="btn" type="button" disabled>1操作戻す</button>
+        <button id="reviewRestart" class="btn" type="button" disabled>やりなおす</button>
+      </div>
+      <p id="playMessage" class="inline-message" data-kind="info" aria-live="polite">「試遊開始」を押すと試行回数を1回加算します。</p>
+    </section>
+
+    <section class="panel record-panel" aria-labelledby="recordTitle">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">手動評価</p>
+          <h2 id="recordTitle">この候補の記録</h2>
+        </div>
+        <span id="recordValidity" class="validity-badge" data-validity="draft">入力途中</span>
+      </div>
+
+      <div class="record-summary">
+        <span>試行 <strong id="recordAttempts">0</strong></span>
+        <span>クリア <strong id="recordClears">0</strong></span>
+        <span>最速 <strong id="recordBestTime">—</strong></span>
+        <span>最少操作 <strong id="recordBestSwipes">—</strong></span>
+      </div>
+
+      <form id="reviewForm" novalidate>
+        <fieldset>
+          <legend>試遊者と環境</legend>
+          <div class="field-grid">
+            <label>試遊者
+              <input id="reviewerName" type="text" maxlength="80" autocomplete="nickname" />
+            </label>
+            <label>端末
+              <input id="reviewDevice" type="text" maxlength="120" />
+            </label>
+            <label>ブラウザ
+              <input id="reviewBrowser" type="text" maxlength="120" />
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>5段階評価</legend>
+          <div class="rating-grid">
+            <label>面白さ
+              <select data-rating="enjoyment"><option value="">未評価</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select>
+            </label>
+            <label>分かりやすさ
+              <select data-rating="clarity"><option value="">未評価</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select>
+            </label>
+            <label>難しさ
+              <select data-rating="difficulty"><option value="">未評価</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select>
+            </label>
+            <label>他候補との違い
+              <select data-rating="distinctiveness"><option value="">未評価</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select>
+            </label>
+            <label>失敗への納得感
+              <select data-rating="fairness"><option value="">未評価</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>判断</legend>
+          <div class="field-grid">
+            <label>扱い
+              <select id="reviewDecision">
+                <option value="pending">保留</option>
+                <option value="accept">採用候補</option>
+                <option value="revise">修正して再確認</option>
+                <option value="reject">不採用</option>
+              </select>
+            </label>
+            <label>理由
+              <textarea id="decisionReason" rows="3" maxlength="3000" placeholder="採用・修正・不採用の理由"></textarea>
+            </label>
+          </div>
+          <label>確認した詰み方・困った手順
+            <textarea id="knownDeadlocks" rows="3" maxlength="5000" placeholder="1件につき1行"></textarea>
+          </label>
+          <label>自由メモ
+            <textarea id="reviewNotes" rows="4" maxlength="10000"></textarea>
+          </label>
+        </fieldset>
+
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit">この候補の評価を保存</button>
+        </div>
+        <p id="recordMessage" class="inline-message" data-kind="info" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <section class="panel data-panel" aria-labelledby="dataTitle">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">記録の持ち出し</p>
+          <h2 id="dataTitle">レビュー記録</h2>
+        </div>
+      </div>
+      <p class="panel-note">記録はこのブラウザ内に保存されます。端末変更やGitHub反映の前にJSONを共有してください。</p>
+      <div class="data-actions">
+        <button id="exportRecords" class="btn btn-primary" type="button">記録JSONを共有</button>
+        <label class="btn file-button">記録JSONを読み込む<input id="importRecords" type="file" accept="application/json,.json" /></label>
+        <button id="clearRecords" class="btn btn-danger" type="button">端末内記録を消す</button>
+      </div>
+      <textarea id="exportFallback" class="export-fallback" readonly hidden></textarea>
+      <p id="dataMessage" class="inline-message" data-kind="info" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <script type="module" src="src/review/review-app.js"></script>
+</body>
+</html>
