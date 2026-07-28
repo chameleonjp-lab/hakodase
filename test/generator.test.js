@@ -1,11 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateBoard, getFallbackBoard, DIFFICULTIES } from '../src/core/generator.js';
-import { quickSolvable, solveOptimalSwipes } from '../src/core/solver.js';
+import { generateBoard, getFallbackBoard, DIFFICULTIES, NORMAL_RUNTIME_PROFILE } from '../src/core/generator.js';
+import { quickSolvable } from '../src/core/solver.js';
 import { manhattanLowerBound, gateForBlock } from '../src/core/rules.js';
-import { PROVISIONAL_PUZZLE_BANK_VERSION } from '../src/core/provisional-puzzle-bank.js';
-
-const OFFLINE_EXACT_MAX_NODES = 5_000_000;
+import {
+  getRuntimeTenBlockPuzzle,
+  RUNTIME_TEN_BLOCK_BANK_VERSION,
+  RUNTIME_TEN_BLOCK_COUNT,
+  RUNTIME_TEN_BLOCK_OPTIMAL_SWIPES,
+} from '../src/core/runtime-ten-block-bank.js';
 
 function posOf(board) {
   return board.blocks.map((block) => ({ x: block.x, y: block.y }));
@@ -22,23 +25,28 @@ test('同じseed・難易度なら同じ盤面が生成される', () => {
   assert.equal(a.puzzleId, b.puzzleId);
 });
 
-test('異なるseedなら試作盤面の選択または変換が変わる', () => {
-  const ids = new Set(['seedA', 'seedB', 'seedC', 'seedD', 'seedE'].map((seed) => (
+test('異なるseedなら10箱盤面の選択または変換が変わる', () => {
+  const ids = new Set(['seedA', 'seedB', 'seedC', 'seedD', 'seedE', 'seedF', 'seedG', 'seedH'].map((seed) => (
     generateBoard({ seed, difficulty: 'normal' }).puzzleId
   )));
-  assert.ok(ids.size >= 3, `盤面の種類が少なすぎる: ${[...ids].join(', ')}`);
+  assert.ok(ids.size >= 5, `盤面の種類が少なすぎる: ${[...ids].join(', ')}`);
 });
 
-test('normalは旧4操作生成を使わず、厳密最短8〜12操作の試作盤面を返す', () => {
-  for (const seed of ['s1', 's2', 's3', 's4', 's5', 'daily-preview-v1', 'normal-fallback-v1']) {
+test('normalは10箱・4色・厳密最短24操作の検証済み盤面を返す', () => {
+  for (const seed of ['s1', 's2', 's3', 's4', 's5', 'daily-preview-v1', 'normal-fallback-v2']) {
     const result = generateBoard({ seed, difficulty: 'normal' });
-    assert.equal(result.source, PROVISIONAL_PUZZLE_BANK_VERSION, `${seed}: source`);
-    assert.equal(result.generatorVersion, PROVISIONAL_PUZZLE_BANK_VERSION, `${seed}: version`);
+    const colors = new Set(result.board.blocks.map((block) => block.color));
+
+    assert.equal(result.source, RUNTIME_TEN_BLOCK_BANK_VERSION, `${seed}: source`);
     assert.equal(result.exact, true, `${seed}: exact`);
     assert.equal(result.fromFallback, false, `${seed}: fallback`);
-    assert.ok(result.optimalSwipes >= 8 && result.optimalSwipes <= 12, `${seed}: ${result.optimalSwipes}`);
-    assert.ok(result.shortestDistanceCells >= 20, `${seed}: distance ${result.shortestDistanceCells}`);
-    assert.ok(result.puzzleId?.startsWith('trial-'), `${seed}: puzzleId ${result.puzzleId}`);
+    assert.equal(result.board.blocks.length, RUNTIME_TEN_BLOCK_COUNT, `${seed}: blocks`);
+    assert.equal(colors.size, 4, `${seed}: colors`);
+    assert.equal(result.optimalSwipes, RUNTIME_TEN_BLOCK_OPTIMAL_SWIPES, `${seed}: optimal`);
+    assert.ok(result.shortestDistanceCells >= result.optimalSwipes, `${seed}: distance ${result.shortestDistanceCells}`);
+    assert.equal(result.profileId, 'b10c4', `${seed}: profile`);
+    assert.ok(result.templateId?.startsWith('b10c4-t'), `${seed}: template ${result.templateId}`);
+    assert.ok(result.puzzleId?.startsWith('preview-b10c4-t'), `${seed}: puzzleId ${result.puzzleId}`);
   }
 });
 
@@ -73,12 +81,14 @@ test('各ブロックに同色の出口ゲートが対応する', () => {
   }
 });
 
-test('normalフォールバックは旧4操作盤面へ戻らない', () => {
+test('normalフォールバックも10箱の検証済み盤面を返す', () => {
   const board = getFallbackBoard('normal');
-  const solved = solveOptimalSwipes(board, { maxNodes: OFFLINE_EXACT_MAX_NODES });
-  assert.equal(solved.solved, true, solved.reason || 'unsolved');
-  assert.ok(solved.optimalSwipes >= 8, `normal fallback: ${solved.optimalSwipes}`);
-  assert.ok(manhattanLowerBound(board, posOf(board)) >= 20);
+  const selected = getRuntimeTenBlockPuzzle('normal-fallback-v2');
+  assert.deepEqual(board.blocks, selected.board.blocks);
+  assert.deepEqual(board.gates, selected.board.gates);
+  assert.deepEqual(board.walls, selected.board.walls);
+  assert.equal(board.blocks.length, RUNTIME_TEN_BLOCK_COUNT);
+  assert.equal(selected.expectedOptimalSwipes, RUNTIME_TEN_BLOCK_OPTIMAL_SWIPES);
 });
 
 test('旧互換フォールバックは可解かつ距離条件を維持する', () => {
@@ -89,8 +99,9 @@ test('旧互換フォールバックは可解かつ距離条件を維持する',
   }
 });
 
-test('練習難易度は可解な盤面を返す', () => {
+test('練習難易度は2箱の可解な盤面を返す', () => {
   const result = generateBoard({ seed: 'practice-seed', difficulty: 'practice' });
+  assert.equal(result.board.blocks.length, 2);
   assert.equal(quickSolvable(result.board), true);
 });
 
@@ -99,6 +110,17 @@ test('難易度定義の色数は2〜6の範囲', () => {
     const colors = DIFFICULTIES[key].colors;
     assert.ok(colors >= 2 && colors <= 6, `${key}: ${colors}`);
   }
+});
+
+test('通常プレイの契約は10箱・4色・24操作', () => {
+  assert.equal(DIFFICULTIES.normal.blocks, 10);
+  assert.equal(DIFFICULTIES.normal.colors, 4);
+  assert.deepEqual(NORMAL_RUNTIME_PROFILE, {
+    blockCount: 10,
+    colorCount: 4,
+    optimalSwipes: 24,
+    bankVersion: RUNTIME_TEN_BLOCK_BANK_VERSION,
+  });
 });
 
 test('フォールバックの寸法が難易度定義と一致する', () => {

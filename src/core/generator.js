@@ -1,20 +1,25 @@
 // seed付き盤面生成。スライド＆退場モデル。
-// normal難易度はP2-06実機Gateで発見した「箱数=最短操作数」のBLOCKERを避けるため、
-// 厳密最短を事前確認した試作盤面バンクを使用する。
+// normal難易度はP3-03Rで厳密検証した10箱・4色・最短24操作の軽量盤面バンクを使用する。
+// 公開ブラウザでは厳密ソルバーを実行しない。
 // practice/easy/hard/expertの旧MVP生成は互換・診断用として残す。
 
 import { makeRng, hashSeed } from './rng.js';
 import { key, manhattanLowerBound, isWall, occupantAt } from './rules.js';
 import { quickSolvable, solveOptimalSwipes } from './solver.js';
-import { getProvisionalPuzzle, PROVISIONAL_PUZZLE_BANK_VERSION } from './provisional-puzzle-bank.js';
+import {
+  getRuntimeTenBlockPuzzle,
+  RUNTIME_TEN_BLOCK_BANK_VERSION,
+  RUNTIME_TEN_BLOCK_COUNT,
+  RUNTIME_TEN_BLOCK_OPTIMAL_SWIPES,
+} from './runtime-ten-block-bank.js';
 
-/** 難易度定義。colors = 色数（旧MVPではブロック数と同じ）。 */
+/** 難易度定義。colorsは色数、blocksは公開時の箱数。 */
 export const DIFFICULTIES = {
-  practice: { colors: 2, width: 5, height: 6, walls: 2, legacyDistance: false, ranking: false, label: '練習(2色)' },
-  easy: { colors: 3, width: 6, height: 8, walls: 4, legacyDistance: false, ranking: false, label: '初級(3色)' },
-  normal: { colors: 4, width: 7, height: 9, walls: 8, legacyDistance: false, ranking: true, label: '標準(試作問題バンク)' },
-  hard: { colors: 5, width: 7, height: 9, walls: 7, legacyDistance: true, ranking: true, label: '上級(5色)' },
-  expert: { colors: 6, width: 7, height: 9, walls: 8, legacyDistance: true, ranking: true, label: '達人(6色)' },
+  practice: { colors: 2, blocks: 2, width: 5, height: 6, walls: 2, legacyDistance: false, ranking: false, label: '練習(2箱・2色)' },
+  easy: { colors: 3, blocks: 3, width: 6, height: 8, walls: 4, legacyDistance: false, ranking: false, label: '初級(3箱・3色)' },
+  normal: { colors: 4, blocks: RUNTIME_TEN_BLOCK_COUNT, width: 7, height: 9, walls: 8, legacyDistance: false, ranking: true, label: '標準(10箱・4色)' },
+  hard: { colors: 5, blocks: 5, width: 7, height: 9, walls: 7, legacyDistance: true, ranking: true, label: '上級(5箱・5色)' },
+  expert: { colors: 6, blocks: 6, width: 7, height: 9, walls: 8, legacyDistance: true, ranking: true, label: '達人(6箱・6色)' },
 };
 
 export const LEGACY_DISTANCE_THRESHOLD = 22;
@@ -48,7 +53,7 @@ function inwardCells(board, side, line) {
 }
 
 /**
- * 旧MVP互換の逆生成。各箱が自分の出口と一直線になるため、normalの本番経路では使わない。
+ * 旧MVP互換の逆生成。各箱が自分の出口と一直線になるため、normalの公開経路では使わない。
  */
 function buildLegacySolvableBoard(cfg, rng) {
   const { colors, width, height } = cfg;
@@ -97,10 +102,10 @@ function buildLegacySolvableBoard(cfg, rng) {
 
 /**
  * 検証済みフォールバック盤面。
- * normalは非自明な試作盤面バンクを使用し、旧4操作盤面へ戻らない。
+ * normalは10箱の固定seedを使い、旧4箱盤面へ戻らない。
  */
 export function getFallbackBoard(difficulty) {
-  if (difficulty === 'normal') return getProvisionalPuzzle('normal-fallback-v1').board;
+  if (difficulty === 'normal') return getRuntimeTenBlockPuzzle('normal-fallback-v2').board;
 
   const cfg = DIFFICULTIES[difficulty] || DIFFICULTIES.normal;
   const colors = cfg.colors;
@@ -116,7 +121,7 @@ export function getFallbackBoard(difficulty) {
 }
 
 function generateNormalFromBank(baseSeed) {
-  const selected = getProvisionalPuzzle(baseSeed);
+  const selected = getRuntimeTenBlockPuzzle(baseSeed);
   const positions = selected.board.blocks.map((block) => ({ x: block.x, y: block.y }));
   return {
     board: selected.board,
@@ -127,8 +132,10 @@ function generateNormalFromBank(baseSeed) {
     exact: true,
     fromFallback: false,
     source: selected.source,
-    generatorVersion: PROVISIONAL_PUZZLE_BANK_VERSION,
+    generatorVersion: selected.generatorVersion,
     puzzleId: selected.puzzleId,
+    profileId: selected.profileId,
+    templateId: selected.templateId,
     provisional: true,
   };
 }
@@ -136,7 +143,7 @@ function generateNormalFromBank(baseSeed) {
 /**
  * 盤面を生成する。
  * @param {object} options { seed, difficulty }
- * @returns {{ board, seed, difficulty, shortestDistanceCells, optimalSwipes, exact, fromFallback, source?, generatorVersion?, puzzleId?, provisional? }}
+ * @returns {{ board, seed, difficulty, shortestDistanceCells, optimalSwipes, exact, fromFallback, source?, generatorVersion?, puzzleId?, profileId?, templateId?, provisional? }}
  */
 export function generateBoard(options = {}) {
   const difficulty = options.difficulty && DIFFICULTIES[options.difficulty] ? options.difficulty : 'normal';
@@ -188,3 +195,10 @@ export function generateBoard(options = {}) {
     provisional: true,
   };
 }
+
+export const NORMAL_RUNTIME_PROFILE = Object.freeze({
+  blockCount: RUNTIME_TEN_BLOCK_COUNT,
+  colorCount: DIFFICULTIES.normal.colors,
+  optimalSwipes: RUNTIME_TEN_BLOCK_OPTIMAL_SWIPES,
+  bankVersion: RUNTIME_TEN_BLOCK_BANK_VERSION,
+});
