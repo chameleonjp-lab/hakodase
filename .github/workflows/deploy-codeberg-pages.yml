@@ -44,14 +44,18 @@ jobs:
         run: |
           set -euo pipefail
           test -f index.html
+          test -f review.html
           test -d styles
           test -d src
+          test -f docs/review/P3_05_REVIEW_PACK.json
 
           rm -rf _site
-          mkdir -p _site
+          mkdir -p _site/docs/review
           cp index.html _site/
+          cp review.html _site/
           cp -R styles _site/styles
           cp -R src _site/src
+          cp docs/review/P3_05_REVIEW_PACK.json _site/docs/review/P3_05_REVIEW_PACK.json
 
           echo "Files prepared for Codeberg Pages:"
           find _site -type f -print | sort
