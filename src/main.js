@@ -478,7 +478,7 @@ class Game {
   _spawnParticles() {
     const board = this.engine.board;
     for (let i = 0; i < 90; i++) {
-      const color = PALETTE[i % Math.max(2, board.blocks.length)];
+      const color = PALETTE[i % PALETTE.length];
       const angle = Math.random() * Math.PI * 2;
       const speed = 2 + Math.random() * 6;
       this.particles.push({
