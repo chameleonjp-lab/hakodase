@@ -32,8 +32,17 @@ function comparableBoard(board) {
   return {
     width: board.width,
     height: board.height,
-    blocks: board.blocks.map((block) => ({ ...block })),
-    gates: board.gates.map((gate) => ({ ...gate })),
+    blocks: board.blocks
+      .map((block) => ({ ...block }))
+      .sort((left, right) => String(left.id).localeCompare(String(right.id), 'en')),
+    gates: board.gates
+      .map((gate) => ({ ...gate }))
+      .sort((left, right) => (
+        String(left.id).localeCompare(String(right.id), 'en')
+        || left.side.localeCompare(right.side, 'en')
+        || left.line - right.line
+        || left.color - right.color
+      )),
     walls: [...board.walls].sort(),
     oneway: [...board.oneway.entries()].sort(([left], [right]) => left.localeCompare(right, 'en')),
   };
