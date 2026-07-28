@@ -1,133 +1,121 @@
-# CURRENT_TASK: P3-05A 試遊候補パックと手動評価契約
+# CURRENT_TASK: P3-05B 実機試遊レビュー画面
 
 ## 目的
 
-P3-03Rで自動条件を通過した66構造を、人が遊ぶ前の候補証拠として固定する。
+P3-05Aで固定した66候補を、iPhoneなどの実機から順番に遊び、評価・採否・試行結果を端末内へ記録できるようにする。
 
-盤面、厳密最短、代表解法、版、hash、自動品質指標と、人間が記入する試遊記録を分離し、P3-05の手動評価を開始できる状態にする。
+自動条件を通過した候補を公式問題へ自動昇格せず、人間が面白さ、分かりやすさ、難しさ、違い、納得感を確認する。
 
 ## 基準
 
 - 正式基準ブランチ: `main`
-- 基準コミット: `45d735cc472a0fc1b3f1fbf146e40807e75c5cc3`
-- 基準内容: Pull Request #19統合後のP3-03R完了地点
-- 作業ブランチ: `agent/hakodase-p3-05-review-pack`
+- 基準コミット: `8c480130750089f1d520f8a99fc646bde7dc7cac`
+- 基準内容: Pull Request #21統合後、通常プレイ10箱化完了地点
+- 作業ブランチ: `agent/hakodase-p3-05b-review-ui`
 - Pull Request base: `main`
-- Pull Request: #20
+- Pull Request: 作成前
 
 ## 今回の一目的
 
 ```text
-66構造の決定論的な試遊候補パックと、手動評価の保存・検証契約を作る。
+固定した66候補を実機で遊び、P3-05A契約に沿った評価記録を保存・共有できるレビュー画面を作る。
 ```
-
-P3-05Aでは、実際の人間試遊、正式採用30問の確定、公開ゲームへの接続を行わない。
 
 ## 実装対象
 
 ```text
-src/core/p3-05-review-pack.js
-src/core/p3-05-playtest-record.js
-scripts/p3-05-build-review-pack.mjs
-test/p3-05-review-pack.test.js
-test/p3-05-playtest-record.test.js
-.github/workflows/p3-05-review-pack.yml
-docs/review/P3_05_REVIEW_PACK.json
-docs/review/P3_05_PLAYTEST_RECORDS.json
-docs/review/P3_05_PLAYTEST_SHEET.csv
-docs/review/P3_05_REVIEW_PACK_SUMMARY.md
-docs/P3_05_REVIEW_PACK.md
-docs/decisions/P3_05_REVIEW_CONTRACT_DECISION.md
-package.json
+review.html
+styles/review.css
+src/review/review-app.js
+src/review/review-game.js
+src/review/review-store.js
+
+test/review-store.test.js
+test/browser/p3-05b-review.spec.js
+
+.github/workflows/deploy-codeberg-pages.yml
+docs/P3_05B_REVIEW_UI.md
+docs/decisions/P3_05B_REVIEW_UI_DECISION.md
 CURRENT_TASK.md
 docs/COMPLETION_STATUS_v2.md
+README.md
 ```
 
-レビュー候補データはCodeberg公開対象の`src/`へ置かず、開発・試遊用の`docs/review/`へ固定する。
-
-## 候補の固定方法
-
-各テンプレートに次の固定seedを使う。
+## 公開場所
 
 ```text
-p3-05-review-v1:<templateId>
+https://chameleonjp.codeberg.page/hakodase/review.html
 ```
 
-`templateId`も明示するため、別構造へ置き換わらない。
+一般向けホームからはリンクしない。`noindex,nofollow`を指定する。
 
-レビューID:
+## 候補データ
 
 ```text
-review-<templateId>-<boardHash先頭12桁>
+docs/review/P3_05_REVIEW_PACK.json
 ```
 
-盤面内容が変わる場合、古いレビューIDと試遊結果を使い回さない。
+Codeberg Pagesへは、レビュー画面とこの候補パックだけを追加配備する。
 
-## 候補数
-
-| profile | 候補数 |
-| --- | ---: |
-| `b08c3` | 12 |
-| `b09c3` | 12 |
-| `b10c4` | 12 |
-| `b11c4` | 12 |
-| `b12c5` | 8 |
-| `b13c5` | 5 |
-| `b14c6` | 5 |
-| 合計 | 66 |
+次は配備しない。
 
 ```text
-最短操作数: 20〜29
-一方通行床を含む候補: 5
-proofMode components: 61
-proofMode global: 5
+docs/review/P3_05_PLAYTEST_RECORDS.json
+docs/review/P3_05_PLAYTEST_SHEET.csv
 ```
 
-## 候補証拠
+## 試遊ランタイム
 
-各候補へ次を保存する。
+固定済み`boardData`を次へ渡す。
 
 ```text
-reviewId
-reviewStatus: unreviewed
-templateId
-profileId
-seed
-puzzleId
-boardHash
-structureHash
-schemaVersion
-rulesVersion
-generatorVersion
-optimalSwipes
-variant
-boardData
-representativeSolution
-proof
-quality
+boardDataV2ToRuntime
+GameEngine
+CanvasRenderer
+PointerInput
 ```
 
-処理時間は実行環境で変わるため固定証拠へ含めない。
-
-## 手動試遊記録
+レビュー画面では次を実行しない。
 
 ```text
+候補生成
+厳密ソルバー
+1001件監査
+ランキング送信
+公式ID発行
+```
+
+## 候補操作
+
+- 66候補を固定順で表示する。
+- profileで絞り込む。
+- 前後へ移動する。
+- 次の`pending`候補へ移動する。
+- URLの`candidate`へ現在候補を保存する。
+
+## 自動試遊記録
+
+「試遊開始」または「やりなおす」で次を更新する。
+
+```text
+attemptCount
+playedAt
 reviewer
 device
 browser
-playedAt
-attemptCount
+```
+
+クリア時に次を更新する。
+
+```text
 clearCount
 bestTimeMs
 bestSwipeCount
-ratings
-knownDeadlocks
-notes
-decision
-decisionReason
 ```
 
-評価項目:
+undoはタイマーを戻さない。
+
+## 手動評価
 
 ```text
 enjoyment
@@ -137,120 +125,102 @@ distinctiveness
 fairness
 ```
 
+各1〜5。
+
 判断:
 
 ```text
 pending
 accept
-reject
 revise
+reject
 ```
 
-`accept`完了には、試遊者・環境・日時・1回以上のクリア・5項目評価・採用理由が必要である。
+`accept`完了には1回以上のクリア、5項目評価、試遊者・環境・日時、採用理由が必要である。
 
-厳密最短より少ない人間記録は不整合として拒否する。
-
-## 生成コマンド
-
-```bash
-npm run build:p3-05-review-pack -- \
-  --out-dir review-output/p3-05 \
-  --require-count 66
-```
-
-生成物:
+## 端末内保存
 
 ```text
-review-pack.json
-playtest-records.json
-playtest-sheet.csv
-summary.md
-review-output.log
+hakodase.p3-05.review-records.v1
+hakodase.p3-05.review-identity.v1
 ```
 
-リポジトリ正本:
+packVersionや候補識別子が一致しない記録は復元しない。
+
+保存領域が使えない場合も試遊自体は継続できる。保存成功を偽らない。
+
+## JSON入出力
+
+書き出し順:
 
 ```text
-docs/review/P3_05_REVIEW_PACK.json
-docs/review/P3_05_PLAYTEST_RECORDS.json
-docs/review/P3_05_PLAYTEST_SHEET.csv
-docs/review/P3_05_REVIEW_PACK_SUMMARY.md
+Web ShareのJSONファイル
+Clipboard
+選択可能なテキスト
 ```
 
-候補パックJSONは機械読取用の1行JSONとして保存し、盤面内容は省略しないまま差分行数を抑える。
-
-## 自動検証結果
-
-P3-05 Review Pack workflow:
+取込時に次を検査する。
 
 ```text
-Run: 30266443413
-Build 66-candidate review pack: success
+schemaVersion
+packVersion
+reviewId
+候補識別子
+重複候補
+記録値
 ```
 
-Artifact:
+## 自動検証
 
-```text
-name: hakodase-p3-05-review-pack-1
-id: 8652982976
-digest: sha256:42704e877a107cf9618151c6a0a432659a75bc2256baaea16ef4cf25623aec69
-```
+Node:
 
-通常CI:
+- 空記録の再照合。
+- 試行とクリアの更新。
+- accept完了条件。
+- 厳密最短未満の記録拒否。
+- JSON取込の版・候補・重複検査。
+- 記録と試遊者情報の保存分離。
 
-```text
-Run: 30266443573
-Node tests and diff check: success
-Browser gate: success
-Node tests: 207
-pass: 207
-fail: 0
-skipped: 0
-```
+Browser:
 
-確認した内容:
-
-- 66候補を生成する。
-- profile配分が`12 / 12 / 12 / 12 / 8 / 5 / 5`である。
-- `reviewId`、`templateId`、`puzzleId`、`boardHash`、`structureHash`が重複しない。
-- 全候補が厳密証明を持つ。
-- 全候補が20〜35操作である。
-- 全候補の初期直行箱が0件である。
-- 同じ条件で同じ候補パックを返す。
-- 証拠改ざんを検出する。
-- 手動記録の候補不一致と不正値を検出する。
-- WebKit 320×568、WebKit 390×844、Chromium 1280×720を通過する。
+- 66候補を読み込む。
+- b10c4を選ぶと10箱・4色・最短24操作。
+- 試遊を開始できる。
+- 評価を保存し再読込後も維持する。
+- 320×568を含む対象画面で横スクロールがない。
+- page errorがない。
 
 ## 完了条件
 
-- [x] 66候補パック生成処理を実装した。
-- [x] 候補証拠の契約を固定した。
-- [x] 手動試遊記録の契約を固定した。
-- [x] JSON、CSV、Markdown生成処理を実装した。
-- [x] 専用GitHub Actionsを追加した。
-- [x] Node Gateが成功した。
-- [x] Browser Gateが成功した。
-- [x] Review Pack workflowが成功した。
-- [x] 正本候補データをリポジトリへ固定した。
-- [x] 空の手動記録JSONとCSVをリポジトリへ固定した。
-- [ ] 人間レビューが完了する。
+- [x] 候補選択と進捗表示を実装した。
+- [x] 固定盤面を遊ぶランタイムを実装した。
+- [x] 試行・クリア・ベスト記録を実装した。
+- [x] 5項目評価と4判断を実装した。
+- [x] localStorage保存を実装した。
+- [x] JSON入出力を実装した。
+- [x] Codeberg配備定義を更新した。
+- [ ] Node Gateが成功する。
+- [ ] Browser Gateが成功する。
+- [ ] Codeberg公開後にiPhone 17 Proで開ける。
+- [ ] 66候補の人間レビューが完了する。
 
 ## 対象外
 
 ```text
-P3-05B 試遊レビュー画面
-人間による66候補の試遊
-P3-05C 30問以上の正式問題集
-P3-06 本日の出荷
+P3-05C 公式問題集の確定
+正式puzzleId
+P3-06 本日の出荷への正式接続
 Supabaseランキング
-Codeberg公開内容の変更
+レビュー記録の自動GitHub push
+代表解法の自動再生を人間試遊として扱うこと
 ```
 
 ## 次工程
 
-Pull Request #20のレビュー・統合後:
+P3-05B統合・公開後、iPhone 17 Proからレビュー画面を開き、66候補を順番に評価する。
+
+評価JSONを回収後:
 
 ```text
-P3-05B: 固定候補を実機で試遊するレビュー導線
-P3-05C: 試遊結果から公式問題集を確定
+P3-05C: 30問以上の公式問題集を確定
 ```
