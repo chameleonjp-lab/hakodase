@@ -22,68 +22,24 @@
 | P2-06-B1 | 非自明盤面暫定修正 | 統合済み・暫定 | Pull Request #14。公開中は4箱8〜12操作の試作盤面 |
 | P3-01 | 盤面データv2・版管理 | 統合済み・自動Gate合格 | Pull Request #15 |
 | P3-02 | 厳密ソルバーv2 | 統合済み・自動Gate合格 | Pull Request #16 |
-| P3-03 | 生成器v2 | 統合済み・品質不合格 | Pull Request #17。P3-04で初期直行・構造不足を確認 |
+| P3-03 | 旧生成器v2 | 統合済み・品質不合格 | Pull Request #17。P3-04で初期直行・構造不足を確認 |
 | P3-04 | 品質指標・1001件監査 | 統合済み | Pull Request #18。旧生成器のBLOCKERを数値化 |
-| P3-03R | 生成器v3補修 | 自動Gate合格・レビュー待ち | Pull Request #19。66構造、直行箱0、1001件再監査合格 |
-| P3-05 | 試遊済み公式問題集 | 未着手 | #19統合後、66構造を人間試遊する |
+| P3-03R | 生成器v3補修 | 統合済み・自動Gate合格 | Pull Request #19。66構造、直行箱0、1001件再監査合格 |
+| P3-05A | 試遊候補パック・評価契約 | 自動Gate合格・レビュー待ち | Pull Request #20。66候補と空の試遊記録JSON/CSVを固定 |
+| P3-05B | 試遊レビュー導線 | 未着手 | 固定候補を実機で順番に遊ぶ導線 |
+| P3-05C | 試遊済み公式問題集 | 未着手 | 30問以上を目標に採否と正式IDを確定 |
 | P3-06 | 本日の出荷 | 未着手 | 試遊済み問題集から決定論的に選択する |
 | Phase 4 | Supabaseランキング | 未着手 | 実物RPC・表・権限の監査から開始する |
 | Phase 5 | 独自ギミック | 未着手 | レーン・シャッターをルール版変更として扱う |
 | Phase 6 | 品質保証・正式公開 | 未着手 | 実機、長時間、アクセシビリティ、公開整合を確認する |
 
-## P3-01 盤面データv2
-
-```text
-schemaVersion: hakodase.board/2
-rulesVersion: slide-exit/1
-boardHash: sha256:<64桁hex>
-7×9
-8〜14箱
-3〜6色
-同色複数箱
-expectedOptimalSwipes: 20〜35
-```
-
-盤面内容を正規化した`boardHash`で識別する。問題名、生成版、記録された最短値だけではhashを変えない。
-
-## P3-02 厳密ソルバー
-
-- 1スライド1コストの幅優先探索。
-- 同色箱の交換対称性を圧縮。
-- 決定論的な解法列。
-- 解法再生と正本`rules.js`との差分試験。
-- ノード、状態、深さ、時間、中断の上限。
-- 上限停止時は`optimalSwipes: null`。
-
-## P3-03旧生成器の監査結果
-
-旧生成版:
-
-```text
-route-scaffold/2.0.0
-```
-
-Pull Request #18の1001件監査:
-
-```text
-生成成功: 1001
-reject: 572
-初期直行箱を含む候補: 572
-hard rule通過候補: 429
-hard rule通過後の一意structureHash: 3
-```
-
-この結果により、P3-05へ進まずP3-03Rを実施した。
-
-## P3-03R 生成器v3
+## P3-03R完了内容
 
 生成版:
 
 ```text
 route-catalog/3.0.0
 ```
-
-profileと基礎構造:
 
 | profile | 箱 | 色 | 厳密最短 | 構造数 |
 | --- | ---: | ---: | ---: | ---: |
@@ -100,39 +56,7 @@ profileと基礎構造:
 各profile: 5構造以上
 ```
 
-seedからテンプレート、盤面反転、色置換を決定する。反転・色置換だけの違いは`structureHash`で同型として扱う。
-
-## 厳密証明の扱い
-
-- 61構造は経路が幾何的に分離されており、独立成分ごとの厳密最短を合成する。
-- `b14c6`の5構造は経路間に隣接があるため、盤面全体を厳密探索する。
-- 分離できない盤面へ成分合成を適用しない。
-- 反転・色置換後の解法を実際に再生する。
-
-`b14c6`全体探索:
-
-```text
-optimalSwipes: 28
-nodesExpanded: 539,959
-```
-
-## P3-03R 1001件再監査
-
-Audit run:
-
-```text
-30262286810
-```
-
-Artifact:
-
-```text
-hakodase-p3-03r-audit-1
-ID: 8651376790
-digest: sha256:a055bd834fa7cf41e6775c6c1c18e269797d4979e53798d40957bb94801e40ea
-```
-
-結果:
+1001件再監査:
 
 ```text
 requested: 1001
@@ -149,59 +73,7 @@ optimal swipes: 20〜29
 acceptance.passed: true
 ```
 
-profile別の一意構造:
-
-```text
-12 / 12 / 12 / 12 / 8 / 5 / 5
-```
-
-旧版との比較:
-
-| 指標 | 旧版 | v3 |
-| --- | ---: | ---: |
-| reject | 572 | 0 |
-| 初期直行箱を含む候補 | 572 | 0 |
-| hard rule通過後の一意構造 | 3 | 66 |
-| 一意boardHash | 656 | 912 |
-
-## P3-03R 自動Gate
-
-CI run:
-
-```text
-30262286867
-```
-
-結果:
-
-```text
-Node tests and diff check: success
-Browser gate: success
-Node tests: 199
-pass: 199
-fail: 0
-skipped: 0
-```
-
-対象:
-
-```text
-WebKit 320×568
-WebKit 390×844
-Chromium 1280×720
-```
-
-## P3-03Rの判定
-
-```text
-実装: 自動Gate合格
-初期直行BLOCKER: 解消
-構造不足BLOCKER: 解消
-1001件受け入れ条件: 合格
-人間レビュー: 未完了
-```
-
-正本文書:
+正本:
 
 ```text
 docs/P3_03R_GENERATOR_V3.md
@@ -209,37 +81,184 @@ docs/decisions/P3_03R_GENERATOR_V3_DECISION.md
 docs/reports/P3_03R_AUDIT_1001_SUMMARY.md
 ```
 
-## P3-05開始条件
+## P3-05A 完了内容
 
-Pull Request #19をレビューし、`main`へ統合した後に開始する。
+### 候補固定
 
-P3-05では次を行う。
+66テンプレートを、次の固定seedと明示`templateId`で1候補ずつ生成する。
 
-- 66構造を人間が試遊する。
-- 似た問題をまとめ、見た目だけ違う問題を除外する。
-- 面白さ、考える必要、誤手の納得感、回復可能性を記録する。
-- 代表解法、既知の詰み、採用・不採用理由を残す。
-- 30問以上の正式問題集を目標にする。
-- 正式`puzzleId`を発行する。
+```text
+p3-05-review-v1:<templateId>
+```
+
+レビューID:
+
+```text
+review-<templateId>-<boardHash先頭12桁>
+```
+
+盤面内容が変わった場合、古い試遊評価を使い回さない。
+
+### 候補数と証明方式
+
+```text
+candidateCount: 66
+optimalSwipes: 20〜29
+usesLanes: 5
+proofMode components: 61
+proofMode global: 5
+```
+
+profile配分:
+
+```text
+12 / 12 / 12 / 12 / 8 / 5 / 5
+```
+
+### 候補証拠
+
+```text
+reviewId
+reviewStatus
+templateId
+profileId
+seed
+puzzleId
+boardHash
+structureHash
+schemaVersion
+rulesVersion
+generatorVersion
+optimalSwipes
+variant
+boardData
+representativeSolution
+proof
+quality
+```
+
+### 手動試遊記録
+
+```text
+reviewer
+device
+browser
+playedAt
+attemptCount
+clearCount
+bestTimeMs
+bestSwipeCount
+ratings
+knownDeadlocks
+notes
+decision
+decisionReason
+```
+
+評価:
+
+```text
+enjoyment
+clarity
+difficulty
+distinctiveness
+fairness
+```
+
+判断:
+
+```text
+pending
+accept
+reject
+revise
+```
+
+`accept`完了には、1回以上のクリア、全評価項目、採用理由が必要である。
+
+### 正本ファイル
+
+```text
+docs/review/P3_05_REVIEW_PACK.json
+docs/review/P3_05_PLAYTEST_RECORDS.json
+docs/review/P3_05_PLAYTEST_SHEET.csv
+docs/review/P3_05_REVIEW_PACK_SUMMARY.md
+```
+
+候補パックは公開対象の`src/`へ置かず、開発・試遊用の`docs/review/`へ固定した。
+
+### Review Pack workflow
+
+```text
+Run: 30266443413
+Build 66-candidate review pack: success
+```
+
+Artifact:
+
+```text
+name: hakodase-p3-05-review-pack-1
+id: 8652982976
+digest: sha256:42704e877a107cf9618151c6a0a432659a75bc2256baaea16ef4cf25623aec69
+```
+
+### Node・Browser Gate
+
+```text
+Run: 30266443573
+Node tests and diff check: success
+Browser gate: success
+Node tests: 207
+pass: 207
+fail: 0
+skipped: 0
+```
+
+ブラウザ対象:
+
+```text
+WebKit 320×568
+WebKit 390×844
+Chromium 1280×720
+```
+
+### P3-05A Gate判定
+
+- [x] 66候補を生成した。
+- [x] profile配分を維持した。
+- [x] `reviewId`、`templateId`、`puzzleId`、`boardHash`、`structureHash`の重複0。
+- [x] 全候補で厳密証明、20〜35操作、初期直行箱0を確認した。
+- [x] 同じ条件で同じ候補パックを再生成した。
+- [x] 候補hash改ざんを検出した。
+- [x] 手動試遊記録の候補不一致と不正値を検出した。
+- [x] Node Gate、Browser Gate、Review Pack workflowが成功した。
+- [x] 正本候補JSONと空の記録JSON/CSVを同じPull Requestへ固定した。
+- [ ] 人間レビューが完了する。
+
+## P3-05Aで未実施
+
+```text
+人間による試遊
+レビュー画面
+accept / reject / reviseの実記録
+30問以上の公式問題集
+正式puzzleId
+本日の出荷
+Supabaseランキング
+Codeberg公開内容の変更
+```
 
 ## 公開版との関係
 
 現在Codebergで遊べる盤面はPull Request #14の暫定版である。
 
-P3-03Rは公開中の`generator.js`、本日の出荷、エンドレス、公式ランキングへ接続していない。公開ゲーム開始時に生成器v3や厳密ソルバーを実行しない。
-
-## 残る実機・設定確認
-
-- iPhone 17 Proでの実操作。
-- iPhone SE級、iPhone 11 Pro、iPad Pro 2018。
-- undo、リタイア、詰み案内。
-- ソフトウェアキーボード、画面ロック、アプリ切替。
-- Web Share、safe area、画面回転、ズーム抑止。
-- GitHubの既定ブランチを`main`へ変更する。
-- `main`のforce push禁止とPull Request必須を確認する。
+P3-05Aは公開中の`generator.js`、本日の出荷、エンドレス、公式ランキングへ接続しない。生成器v3と厳密ソルバーは開発時だけ使用する。
 
 ## 次の作業
 
+Pull Request #20のレビュー・統合後:
+
 ```text
-P3-05: 人間試遊と公式問題集
+P3-05B: 固定候補を実機で試遊するレビュー導線
+P3-05C: 試遊結果から30問以上の公式問題集を確定
 ```
