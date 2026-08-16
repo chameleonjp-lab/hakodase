@@ -11,10 +11,11 @@
 | 優先度 | ファイル | 用途 |
 |---|---|---|
 | 1 | `HAKODASE_リプレイ性評価レポート.md` | 実プレイ結果、評価、優先順位、改善ロードマップを読む。 |
-| 2 | `evidence/generation-sample-200-per-difficulty.json` | 各難易度200問の実生成データを確認する。 |
-| 3 | `evidence/solver-limit-probe.jsonl` | 最短操作数が未算出になる原因が探索上限であることを確認する。 |
-| 4 | `evidence/run-generation-evaluation.mjs` | 生成分布の測定を再実行する。 |
-| 5 | `evidence/run-solver-limit-probe.mjs` | ソルバー上限の再検証を実行する。 |
+| 2 | `HAKODASE_問題生成バランス設計案.md` | 日替わりに依存しない、問題生成・採用フィルタ・難易度設計の具体仕様を読む。 |
+| 3 | `evidence/generation-sample-200-per-difficulty.json` | 各難易度200問の実生成データを確認する。 |
+| 4 | `evidence/solver-limit-probe.jsonl` | 最短操作数が未算出になる原因が探索上限であることを確認する。 |
+| 5 | `evidence/run-generation-evaluation.mjs` | 生成分布の測定を再実行する。 |
+| 6 | `evidence/run-solver-limit-probe.mjs` | ソルバー上限の再検証を実行する。 |
 
 ## 引き継ぐべき結論
 
@@ -32,7 +33,7 @@ HAKODASEは、ドラッグ操作、色と記号を併記した箱・出口の識
 
 最初の実装PRは、機能を広げずに**P0の計時と最短目標の信頼性**を直すことを推奨する。Three.js化、オンラインランキング、過剰な演出の追加は後回しにする。見た目を改善しても、問題構造とスコアが信頼できなければ再挑戦の動機は生まれない。
 
-P0の完了後、P1として検証済み問題カタログと画面状態を整備する。モードは、概念を教える固定問題の「練習」、同一問題を競う「本日の出荷」、seedで発見を楽しむ「エンドレス」に分ける。公式問題は実行時のランダム生成物を使わず、`puzzleId`、`rulesVersion`、`generatorVersion`、`boardHash`、最短解を持つ事前検証済みデータから選ぶ。
+P0の完了後、P1として検証済み問題カタログと画面状態を整備する。日替わり問題は前提にせず、概念を教える固定問題の「練習」と、seedで発見・再挑戦を楽しむ「エンドレス」を分ける。問題は実行時の未検証ランダム生成物を使わず、`puzzleId`、`rulesVersion`、`generatorVersion`、`boardHash`、最短解を持つ事前検証済みプールから多様性を保って抽選する。具体的な生成仕様は`HAKODASE_問題生成バランス設計案.md`を正本として参照する。
 
 ## 推奨プロンプト
 
@@ -61,5 +62,6 @@ node docs/chatgpt-handover/2026-08-16-replayability-evaluation/evidence/run-solv
 | 最短操作数探索 | `src/core/solver.js` |
 | v2の公式問題・モード・画面・操作数契約 | `docs/GAME_CONTRACT_v2.md` |
 | 詳細な評価とロードマップ | `HAKODASE_リプレイ性評価レポート.md` |
+| 問題生成の具体仕様・採用フィルタ・難易度 | `HAKODASE_問題生成バランス設計案.md` |
 
 > 注記: このフォルダのJSON/JSONLは評価時点の証跡である。ゲーム本体の変更後に同じ結論を前提にせず、必ず再測定すること。
