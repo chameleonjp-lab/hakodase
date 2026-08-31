@@ -7,6 +7,7 @@ import { CanvasRenderer } from './render/canvas-renderer.js';
 import { PointerInput } from './input/pointer-input.js';
 import { HUD } from './ui/hud.js';
 import { LocalRankingService } from './services/ranking.js';
+import { formatRankingScore, getTopRanking, submitScore } from './services/online-ranking.js';
 import { PALETTE } from './core/palette.js';
 import { gateForBlock, gateOpeningCell } from './core/rules.js';
 import { approachPoint, pointReached, clampDt } from './render/animation.js';
@@ -42,6 +43,8 @@ class Game {
     this.savedThisRound = false;
     this.inputLocked = false;
     this.pendingStart = false;
+    this.playerName = this._readPlayerName();
+    this.resultOpen = false;
 
     this._setupControls();
     this._setupInput();
@@ -76,6 +79,81 @@ class Game {
       const v = document.getElementById('seedInput').value.trim();
       if (v) this.newBoard(this.difficulty, v);
     });
+    const nameInput = document.getElementById('playerName');
+    nameInput.value = this.playerName;
+    nameInput.addEventListener('input', () => {
+      this.playerName = cleanName(nameInput.value);
+      nameInput.value = this.playerName;
+      if (this.playerName) {
+        localStorage.setItem('hakodase.player-name', this.playerName);
+        document.getElementById('nameMessage').textContent = '';
+        if (this.engine?.status === 'ready' && !this.pendingStart) {
+          this.pendingStart = true;
+          this.inputLocked = false;
+          this.hud.message('名前を確認しました。次の描画から開始します。', 'info');
+        }
+      }
+    });
+    document.getElementById('homeShare').addEventListener('click', () => this._share(this._homeShareText(), document.getElementById('homeShareStatus')));
+    document.getElementById('resultShare').addEventListener('click', () => this._share(document.getElementById('resultShareText').value, document.getElementById('resultShareStatus')));
+    document.getElementById('resultRetry').addEventListener('click', () => { this._closeResult(); this.retry(); });
+    document.getElementById('resultNew').addEventListener('click', () => { this._closeResult(); this.newBoard(this.difficulty); });
+  }
+
+  _readPlayerName() {
+    try { return cleanName(localStorage.getItem('hakodase.player-name') || ''); } catch (_) { return ''; }
+  }
+
+  _gameUrl() { return new URL(window.location.href).toString().split('#')[0]; }
+  _homeShareText() { return `HAKODASEで、箱を同じ色の搬出口へ滑らせよう！\n${this._gameUrl()}\n#HAKODASE #ミニゲーム`; }
+  _resultShareText(timeMs) { return `${this.playerName}さんのHAKODASE結果：${(timeMs / 1000).toFixed(2)}秒、${this.engine.swipeCount}操作、移動${this.engine.distanceCells}マスでクリア！\n${this._gameUrl()}\n#HAKODASE #パズルゲーム`; }
+
+  async _share(text, statusElement) {
+    statusElement.textContent = '';
+    if (navigator.share) {
+      try { await navigator.share({ title: 'HAKODASE', text, url: this._gameUrl() }); statusElement.textContent = '共有しました。'; return; }
+      catch (error) { if (error?.name === 'AbortError') return; }
+    }
+    try { await navigator.clipboard.writeText(text); statusElement.textContent = 'シェア文をコピーしました。'; }
+    catch (_) { statusElement.textContent = 'シェア文のコピーに失敗しました。下の文面を選択してください。'; }
+  }
+
+  _showResult(timeMs) {
+    const panel = document.getElementById('resultPanel');
+    document.getElementById('resultSummary').textContent = `${(timeMs / 1000).toFixed(2)}秒 / ${this.engine.swipeCount}操作 / 移動${this.engine.distanceCells}マス`;
+    document.getElementById('resultShareText').value = this._resultShareText(timeMs);
+    document.getElementById('resultShareStatus').textContent = '';
+    document.getElementById('onlineRankingList').innerHTML = '<li>ランキングを読み込み中…</li>';
+    document.getElementById('onlineRankingStatus').textContent = '今回のスコアを送信中…';
+    panel.hidden = false;
+    this.resultOpen = true;
+    void this._submitAndLoadOnlineRanking(timeMs);
+  }
+
+  _closeResult() { document.getElementById('resultPanel').hidden = true; this.resultOpen = false; }
+
+  async _submitAndLoadOnlineRanking(timeMs) {
+    const status = document.getElementById('onlineRankingStatus');
+    try {
+      await submitScore({ displayName: this.playerName, score: timeMs, clientVersion: 'hakodase-2026-08-31-platform' });
+    } catch (_) {
+      status.textContent = '今回のスコアを送信できませんでした。ランキングを表示します。';
+    }
+    try {
+      const rows = await getTopRanking();
+      const list = document.getElementById('onlineRankingList');
+      list.innerHTML = rows.length ? '' : '<li>まだランキングがありません。</li>';
+      rows.forEach((row) => {
+        const li = document.createElement('li');
+        const name = row.display_name || row.player_name || 'ななし';
+        li.textContent = `${name}：${formatRankingScore(row.score ?? row.best_score)}`;
+        list.appendChild(li);
+      });
+      if (status.textContent === '今回のスコアを送信中…') status.textContent = '上位10名を表示しています。タイムの短い順です。';
+    } catch (_) {
+      document.getElementById('onlineRankingList').innerHTML = '<li>ランキングを読み込めませんでした。</li>';
+      status.textContent = 'ランキングを読み込めませんでした。';
+    }
   }
 
   _setupInput() {
@@ -165,9 +243,13 @@ class Game {
     this.hud.setTarget(this.meta.optimalSwipes, this.meta.exact);
     this.hud.setSeed(this.meta.seed);
     this.hud.message('箱をドラッグ → 壁まで滑る。同じ色（記号）の搬出口から出そう。', 'info');
-    this.pendingStart = true;
+    this.pendingStart = Boolean(this.playerName);
     this.inputLocked = false;
     this._refreshRanking();
+    if (!this.playerName) {
+      document.getElementById('nameMessage').textContent = '名前を入力するとゲームを開始できます。';
+      this.hud.message('ランキング表示名を入力してから開始してください。', 'info');
+    }
   }
 
   retry() {
@@ -178,9 +260,9 @@ class Game {
     this.savedThisRound = false;
     this.hud.setStats(0, 0);
     this.hud.setTime(0);
-    this.pendingStart = true;
+    this.pendingStart = Boolean(this.playerName);
     this.inputLocked = false;
-    this.hud.message('やりなおし。次の描画後に暫定タイマーを再スタートします。', 'info');
+    this.hud.message(this.playerName ? 'やりなおし。次の描画後にタイマーを再スタートします。' : '名前を入力するとゲームを開始できます。', 'info');
   }
 
   _resetView() {
@@ -214,6 +296,7 @@ class Game {
       });
       await this._refreshRanking(clearedAt);
     }
+    this._showResult(timeMs);
   }
 
   async _refreshRanking(highlightAt) {

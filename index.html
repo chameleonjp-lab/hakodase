@@ -12,7 +12,15 @@
   <main class="app">
     <header class="topbar">
       <h1 class="title">HAKODASE<span class="subtitle">ハコダセ｜倉庫の色分け出荷</span></h1>
+      <button id="homeShare" class="btn btn-link" type="button">ゲームをシェア</button>
+      <a class="platform-link" href="https://chameleonjp-lab.github.io/chameleonjp_lab/" target="_blank" rel="noopener noreferrer">カメレオンJPの実験場へ</a>
     </header>
+
+    <section class="name-card" aria-labelledby="playerNameLabel">
+      <label id="playerNameLabel" for="playerName">ランキング表示名</label>
+      <input id="playerName" type="text" maxlength="20" autocomplete="nickname" placeholder="名前を入力してください" />
+      <p id="nameMessage" class="name-message" role="status" aria-live="polite"></p>
+    </section>
 
     <section class="stats">
       <div class="stat"><span class="stat-label">タイム</span><span id="time" class="stat-value">0.00秒</span></div>
@@ -43,14 +51,35 @@
 
     <section class="ranking-section">
       <div class="ranking-head">
-        <h2>ローカルランキング（この難易度）</h2>
+        <h2>この端末の記録（この難易度）</h2>
         <button id="clearRanking" class="btn btn-ghost">記録を消去</button>
       </div>
       <ol id="ranking" class="ranking"></ol>
     </section>
 
+    <section id="resultPanel" class="result-panel" hidden aria-labelledby="resultTitle">
+      <div class="result-card">
+        <h2 id="resultTitle">クリア結果</h2>
+        <p id="resultSummary" class="result-summary"></p>
+        <textarea id="resultShareText" class="result-share-text" readonly aria-label="結果のシェア文"></textarea>
+        <div class="result-actions">
+          <button id="resultShare" class="btn btn-primary" type="button">結果をシェア（文面をコピー）</button>
+          <button id="resultRetry" class="btn" type="button">もう一度</button>
+          <button id="resultNew" class="btn" type="button">新しい盤面</button>
+        </div>
+        <p id="resultShareStatus" class="result-status" role="status" aria-live="polite"></p>
+        <section class="online-ranking" aria-labelledby="onlineRankingTitle">
+          <h3 id="onlineRankingTitle">スコアランキング TOP10</h3>
+          <ol id="onlineRankingList"><li>ランキングを読み込み中…</li></ol>
+          <p id="onlineRankingStatus" class="result-status" role="status" aria-live="polite"></p>
+        </section>
+        <a class="platform-link" href="https://chameleonjp-lab.github.io/chameleonjp_lab/" target="_blank" rel="noopener noreferrer">カメレオンJPの実験場へ</a>
+      </div>
+    </section>
+
     <footer class="howto">
       <p>箱をドラッグすると壁・他の箱・盤端に当たるまで一気に滑ります。各箱を同じ色（記号）の搬出口から盤外へ出すとクリア。出す順番がカギです。</p>
+      <p id="homeShareStatus" class="home-share-status" role="status" aria-live="polite"></p>
     </footer>
   </main>
 
