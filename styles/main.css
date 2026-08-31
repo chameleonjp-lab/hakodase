@@ -32,6 +32,7 @@ html, body {
 }
 
 .topbar { text-align: center; }
+.topbar .btn { margin-top: 8px; }
 .title {
   margin: 4px 0 0;
   font-size: 22px;
@@ -46,6 +47,12 @@ html, body {
   font-weight: 500;
   margin-top: 2px;
 }
+.platform-link { display: inline-block; color: var(--accent); font-size: 12px; font-weight: 700; text-decoration: underline; }
+.name-card { background: var(--panel); border-radius: var(--radius); padding: 10px 12px; }
+.name-card label { display: block; margin-bottom: 5px; color: var(--muted); font-size: 11px; }
+.name-card input { width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid #2c3543; border-radius: 8px; padding: 10px; font-size: 16px; }
+.name-card input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.name-message, .home-share-status { min-height: 17px; margin: 5px 0 0; color: var(--accent-2); font-size: 12px; text-align: center; }
 
 .stats {
   display: grid;
@@ -120,6 +127,7 @@ select, .seed-input {
 .btn:active { transform: translateY(1px); }
 .btn-primary { background: var(--accent); color: #04222f; border-color: var(--accent); }
 .btn-ghost { background: transparent; color: var(--muted); flex: 0 0 auto; padding: 6px 10px; font-size: 12px; }
+.btn-link { color: var(--accent); background: transparent; border-color: transparent; }
 
 .seed-row {
   display: flex;
@@ -172,3 +180,17 @@ select, .seed-input {
   margin: 4px 0 0;
   line-height: 1.5;
 }
+
+.result-panel { position: fixed; inset: 0; z-index: 20; overflow-y: auto; padding: 24px 12px; background: rgba(11, 14, 19, .92); }
+.result-card { width: min(100%, 436px); margin: 0 auto; padding: 18px 14px 24px; background: var(--panel); border: 1px solid #2c3543; border-radius: 16px; box-shadow: 0 18px 50px #0009; text-align: center; }
+.result-card h2 { margin: 0 0 10px; font-size: 22px; }
+.result-summary { margin: 0 0 12px; color: var(--accent-2); font-size: 18px; font-weight: 800; line-height: 1.5; }
+.result-share-text { display: block; width: 100%; min-height: 72px; margin: 8px 0; padding: 10px; background: var(--panel-2); color: var(--text); border: 1px solid #2c3543; border-radius: 8px; font: 13px/1.45 inherit; resize: vertical; }
+.result-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.result-actions .btn { min-width: 130px; }
+.result-status { min-height: 17px; margin: 6px 0; color: var(--muted); font-size: 12px; }
+.online-ranking { margin: 14px 0; padding: 10px 12px; background: var(--panel-2); border-radius: 10px; text-align: left; }
+.online-ranking h3 { margin: 0 0 8px; color: var(--accent); font-size: 14px; text-align: center; }
+.online-ranking ol { margin: 0; padding-left: 25px; }
+.online-ranking li { padding: 5px 0; border-bottom: 1px solid #ffffff12; font-size: 13px; }
+.online-ranking .result-status { text-align: center; }
